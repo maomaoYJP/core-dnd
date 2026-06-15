@@ -2,7 +2,8 @@ import { mountStylesToHead } from "./style.js";
 import { CSS } from "./constant.js";
 
 export class DragContainer {
-  container = null;
+  //{element: HTMLElement,rawRect: DOMRectrect: DOMRect}
+  containerItem = {};
 
   // 幽灵元素{element: HTMLElement,rawRect: DOMRectrect: DOMRect}
   ghostItem = {};
@@ -17,7 +18,10 @@ export class DragContainer {
   draggableItems = [];
 
   constructor(container) {
-    this.container = container;
+    this.containerItem = {
+      element: container,
+      rawRect: container.getBoundingClientRect(),
+    };
 
     this.init();
   }
@@ -25,20 +29,20 @@ export class DragContainer {
   init() {
     // 将样式挂载到head中
     mountStylesToHead();
-    this.initStructure(this.container);
-    this.initDraggableItems(this.container);
+    this.initStructure(this.containerItem.element);
+    this.initDraggableItems(this.containerItem.element);
     this.initEvent();
   }
 
   // 初始化拖拽容器结构
-  initStructure(container) {
+  initStructure(containerElement) {
     // 最外层容器
-    container.classList.add(CSS.dragContainer);
+    containerElement.classList.add(CSS.dragContainer);
     // 内部包裹层
     const frg = document.createDocumentFragment();
     // container.children是动态的
     // 不能直接使用forEach遍历，否则会有问题
-    const wrapperItems = Array.from(container.children);
+    const wrapperItems = Array.from(containerElement.children);
 
     for (let i = 0; i < wrapperItems.length; i++) {
       const item = wrapperItems[i];
@@ -47,12 +51,12 @@ export class DragContainer {
       wrapper.appendChild(item);
       frg.appendChild(wrapper);
     }
-    container.innerHTML = "";
-    container.appendChild(frg);
+    containerElement.innerHTML = "";
+    containerElement.appendChild(frg);
   }
 
-  initDraggableItems(container) {
-    this.draggableItems = Array.from(container.children).map((item) => {
+  initDraggableItems(containerElement) {
+    this.draggableItems = Array.from(containerElement.children).map((item) => {
       const rawRect = item.getBoundingClientRect();
       // rawRect是非枚举属性，所以需要复制一份
       const rect = {
@@ -134,6 +138,7 @@ export class DragContainer {
     // rect是 ghostElement 的边界框
     const ghostCenterX = rect.left + rect.width / 2;
     const ghostCenterY = rect.top + rect.height / 2;
+    const containerRect = this.containerItem.rawRect;
 
     // 判断逻辑是，如果拖拽元素中心点在某个元素的范围内，就认为碰撞了
     for (let i = 0; i < this.draggableItems.length; i++) {
@@ -149,7 +154,16 @@ export class DragContainer {
         return i;
       }
     }
-    return -1;
+    if (
+      ghostCenterX < containerRect.left ||
+      ghostCenterX > containerRect.right ||
+      ghostCenterY < containerRect.top ||
+      ghostCenterY > containerRect.bottom
+    ) {
+      return -1;
+    }
+
+    return this.targetIndex;
   }
 
   destroyEvents() {
@@ -177,7 +191,7 @@ export class DragContainer {
       this.draggableItems[this.initialIndex].element,
     );
     // 添加到container容器中
-    this.container.appendChild(this.ghostItem.element);
+    this.containerItem.element.appendChild(this.ghostItem.element);
 
     // 保存偏移量
     const rect = this.draggableItems[this.initialIndex].rect;
@@ -195,8 +209,12 @@ export class DragContainer {
       e.clientX - this.offsetX,
       e.clientY - this.offsetY,
     );
+
     // 检测碰撞，更新目标index
-    this.targetIndex = this.getTargetDraggedEleIndex(this.ghostItem.rect);
+    const targetIndex = this.getTargetDraggedEleIndex(this.ghostItem.rect);
+    if (targetIndex !== this.targetIndex) {
+      this.targetIndex = targetIndex;
+    }
     console.log(this.targetIndex);
   };
 
@@ -212,6 +230,10 @@ export class DragContainer {
       this.draggableItems[this.initialIndex].element.style.visibility =
         "visible";
     }
+
+    // reset initialIndex 和 targetIndex
+    this.initialIndex = -1;
+    this.targetIndex = -1;
 
     this.destroyEvents();
   };

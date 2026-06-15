@@ -109,3 +109,9 @@ initDraggableItems(container) {
 
 1. 判断幽灵元素的中心点是否在某个元素的边界框内
 2. 如果在，返回该元素的index作为targetIndex
+
+只是简单的这样判断，有一些问题。比如在空隙的时候，一直返回-1，导致元素一直在抖动。
+改变思路：
+
+1. 加上容器本身的判断，如果ghost元素的中心点在容器内，那么不应该targetIndex为-1，而是上一次的targetIndex
+2. 只有ghost元素的中心点在容器外的时候，才应该targetIndex为-1
