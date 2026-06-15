@@ -21,7 +21,7 @@ const css = {
     transition: "all 0.3s ease" /* 添加过渡效果 */,
   },
   [CSS.dragGhost]: {
-    position: "absolute",
+    position: "fixed",
     "pointer-events": "none" /* 使幽灵元素不响应鼠标事件 */,
     opacity: 1.0 /* 可选：调整幽灵元素的透明度 */,
   },

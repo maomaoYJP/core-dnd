@@ -27,3 +27,36 @@ const dragContainer = new DragContainer(container);
 
 1. 定义事件，mousedown事件监听器(一直监听)，点击可拖拽项时，创建幽灵元素，并且将被点击的元素隐藏。在mousedown中绑定mousemove和mouseup事件监听器
 2. mouseup中，移除mousemove和mouseup事件监听器
+
+### mousedown事件
+
+1. 获取被点击的元素
+2. 隐藏被点击的元素
+3. 创建幽灵元素
+4. 绑定mousemove和mouseup事件监听器
+
+创建幽灵元素
+
+```html
+<!-- 外层包裹 -->
+<div class="drag-ghost animated">
+  <!-- 点击的元素 -->
+</div>
+```
+
+使用fixed定位，设置幽灵元素的尺寸和位置，使其与被点击的元素重叠
+
+### mousemove事件
+
+1. 获取鼠标位置
+2. 更新幽灵元素的位置，使其跟随鼠标移动
+
+需要保存鼠标相对于被点击元素的偏移量，以确保幽灵元素能够正确地跟随鼠标移动
+
+1. 保存鼠标点击位置与被点击元素左上角的偏移量
+2. 在mousemove事件中，根据鼠标位置和偏移量计算幽灵元素的新位置
+
+### mouseup事件
+
+1. 删除幽灵元素，并且将被点击的元素显示
+2. 移除mousemove和mouseup事件监听器
