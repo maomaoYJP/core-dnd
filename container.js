@@ -18,10 +18,7 @@ export class DragContainer {
   draggableItems = [];
 
   constructor(container) {
-    this.containerItem = {
-      element: container,
-      rawRect: container.getBoundingClientRect(),
-    };
+    this.initContainerItem(container);
 
     this.init();
   }
@@ -56,7 +53,12 @@ export class DragContainer {
   }
 
   initDraggableItems(containerElement) {
-    this.draggableItems = Array.from(containerElement.children).map((item) => {
+    // 找到dragDraggableWrapper类的元素，并且获取它们的边界框信息
+    const wrapperItems = containerElement.querySelectorAll(
+      `.${CSS.dragDraggableWrapper}`,
+    );
+
+    this.draggableItems = Array.from(wrapperItems).map((item) => {
       const rawRect = item.getBoundingClientRect();
       // rawRect是非枚举属性，所以需要复制一份
       const rect = {
@@ -74,6 +76,13 @@ export class DragContainer {
         rect: { ...rect },
       };
     });
+  }
+
+  initContainerItem(containerElement) {
+    this.containerItem = {
+      element: containerElement,
+      rawRect: containerElement.getBoundingClientRect(),
+    };
   }
 
   initEvent() {
@@ -280,16 +289,48 @@ export class DragContainer {
         "visible";
     }
 
+    // 应用dom结构变更
+    this.reorderDOM(this.initialIndex, this.targetIndex);
+
     // 重置变量
     this.resetVariables();
 
-    // 移除过渡动画
+    // 移除过渡动画，并且将所有元素的 transform 都清零
     this.draggableItems.forEach((item) => {
       item.element.classList.remove(CSS.animated);
+      item.element.style.transform = "translateY(0)";
     });
+
+    // 重新初始化initDraggableItems
+    this.initDraggableItems(this.containerItem.element);
 
     this.destroyEvents();
   };
+
+  //reorderDOM
+  reorderDOM(initialIndex, targetIndex) {
+    if (
+      initialIndex === -1 ||
+      targetIndex === -1 ||
+      initialIndex === targetIndex
+    ) {
+      return;
+    }
+    const initialItem = this.draggableItems[initialIndex];
+    const targetItem = this.draggableItems[targetIndex];
+    const container = this.containerItem.element;
+
+    if (targetIndex > initialIndex) {
+      // 向后移动
+      container.insertBefore(
+        initialItem.element,
+        targetItem.element.nextSibling,
+      );
+    } else {
+      // 向前移动
+      container.insertBefore(initialItem.element, targetItem.element);
+    }
+  }
 
   // 重置类内变量
   resetVariables() {

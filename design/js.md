@@ -167,3 +167,15 @@ reflowWrapperElements(initialIndex, targetIndex) {
     }
   }
 ```
+
+### 更新dom
+
+1. 在mouseup事件中，根据targetIndex和initialIndex的关系，更新dom结构
+2. 如果targetIndex < initialIndex，说明被拖动元素在向前移动，需要将被拖动元素插入到targetIndex位置之前
+3. 如果targetIndex > initialIndex，说明被拖动元素在向后移动，需要将被拖动元素插入到targetIndex位置之后
+4. 如果targetIndex === -1，说明被拖动元素被拖出了容器，不需要插入到容器中，直接放回原位即可
+
+同时还需要
+
+1. 动画结束后，清除所有元素的 transform 样式
+2. 更新draggableItems数组中元素的index和rect信息，以便下一次拖动时能够正确地计算位置
