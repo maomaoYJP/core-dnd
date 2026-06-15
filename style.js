@@ -18,7 +18,7 @@ const css = {
     "user-select": "none",
   },
   [CSS.animated]: {
-    transition: "all 0.3s ease" /* 添加过渡效果 */,
+    transition: "all 0.1s ease" /* 添加过渡效果 */,
   },
   [CSS.dragGhost]: {
     position: "fixed",

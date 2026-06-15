@@ -166,6 +166,48 @@ export class DragContainer {
     return this.targetIndex;
   }
 
+  // 更新元素位置，使用transform进行位置调整
+  reflowWrapperElements(initialIndex, targetIndex) {
+    if (
+      initialIndex === -1 ||
+      targetIndex === -1 ||
+      initialIndex === targetIndex
+    ) {
+      // 如果回到了原位，必须把所有元素的 transform 都清零！
+      this.draggableItems.forEach((item) => {
+        item.element.style.transform = `translateY(0)`;
+      });
+      return;
+    }
+
+    // 如果targetIndex < initialIndex，说明被拖动元素在向前移动，
+    // 需要将index到initialIndex之间的元素向后移动一个位置，
+    // 移动的距离为被拖动元素的高度
+    const direction = targetIndex > initialIndex ? -1 : 1;
+    const initialItem = this.draggableItems[initialIndex];
+    const targetItem = this.draggableItems[targetIndex];
+    const translateY = direction * initialItem.rect.height;
+
+    // 需要考虑css的 gap 属性
+    const gap = parseFloat(
+      getComputedStyle(this.containerItem.element).gap || "0",
+    );
+
+    const translateYWithGap = translateY + direction * gap;
+
+    for (let i = 0; i < this.draggableItems.length; i++) {
+      const item = this.draggableItems[i];
+      if (
+        i >= Math.min(initialIndex, targetIndex) &&
+        i <= Math.max(initialIndex, targetIndex)
+      ) {
+        item.element.style.transform = `translateY(${translateYWithGap}px)`;
+      } else {
+        item.element.style.transform = "translateY(0)";
+      }
+    }
+  }
+
   destroyEvents() {
     window.removeEventListener("mousemove", this.handleMouseMove);
     window.removeEventListener("mouseup", this.handleMouseUp);
@@ -215,7 +257,14 @@ export class DragContainer {
     if (targetIndex !== this.targetIndex) {
       this.targetIndex = targetIndex;
     }
-    console.log(this.targetIndex);
+
+    // 给元素加入过渡动画
+    this.draggableItems.forEach((item) => {
+      item.element.classList.add(CSS.animated);
+    });
+
+    // 更新元素位置
+    this.reflowWrapperElements(this.initialIndex, this.targetIndex);
   };
 
   handleMouseUp = (e) => {
@@ -231,10 +280,23 @@ export class DragContainer {
         "visible";
     }
 
-    // reset initialIndex 和 targetIndex
-    this.initialIndex = -1;
-    this.targetIndex = -1;
+    // 重置变量
+    this.resetVariables();
+
+    // 移除过渡动画
+    this.draggableItems.forEach((item) => {
+      item.element.classList.remove(CSS.animated);
+    });
 
     this.destroyEvents();
   };
+
+  // 重置类内变量
+  resetVariables() {
+    this.ghostItem = {};
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.initialIndex = -1;
+    this.targetIndex = -1;
+  }
 }

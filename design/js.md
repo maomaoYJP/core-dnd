@@ -115,3 +115,55 @@ initDraggableItems(container) {
 
 1. 加上容器本身的判断，如果ghost元素的中心点在容器内，那么不应该targetIndex为-1，而是上一次的targetIndex
 2. 只有ghost元素的中心点在容器外的时候，才应该targetIndex为-1
+
+### 更新元素位置
+
+1. 如果targetIndex < initialIndex，说明被拖动元素在向前移动，需要将index到initialIndex之间的元素向后移动一个位置，移动的距离为被拖动元素的高度
+2. 如果targetIndex > initialIndex，说明被拖动元素在向后移动，需要
+   将initialIndex到index之间的元素向前移动一个位置
+3. 如果targetIndex === initialIndex，不需要移动元素
+4. 如果targetIndex === -1，下方全部元素向前移动一个位置
+5. 如果回到了原位，必须把所有元素的 transform 都清零！
+
+```javascript
+reflowWrapperElements(initialIndex, targetIndex) {
+    if (
+      initialIndex === -1 ||
+      targetIndex === -1 ||
+      initialIndex === targetIndex
+    ) {
+      // 如果回到了原位，必须把所有元素的 transform 都清零！
+      this.draggableItems.forEach((item) => {
+        item.element.style.transform = `translateY(0)`;
+      });
+      return;
+    }
+
+    // 如果targetIndex < initialIndex，说明被拖动元素在向前移动，
+    // 需要将index到initialIndex之间的元素向后移动一个位置，
+    // 移动的距离为被拖动元素的高度
+    const direction = targetIndex > initialIndex ? -1 : 1;
+    const initialItem = this.draggableItems[initialIndex];
+    const targetItem = this.draggableItems[targetIndex];
+    const translateY = direction * initialItem.rect.height;
+
+    // 需要考虑css的 gap 属性
+    const gap = parseFloat(
+      getComputedStyle(this.containerItem.element).gap || "0",
+    );
+
+    const translateYWithGap = translateY + direction * gap;
+
+    for (let i = 0; i < this.draggableItems.length; i++) {
+      const item = this.draggableItems[i];
+      if (
+        i >= Math.min(initialIndex, targetIndex) &&
+        i <= Math.max(initialIndex, targetIndex)
+      ) {
+        item.element.style.transform = `translateY(${translateYWithGap}px)`;
+      } else {
+        item.element.style.transform = "translateY(0)";
+      }
+    }
+  }
+```
