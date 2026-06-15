@@ -23,7 +23,7 @@ const dragContainer = new DragContainer(container);
 1. container接收到用户传入的容器元素
 2. 初始化容器结构,修改元素，将元素进行包装
 
-## 事件设计
+## 基本事件设计
 
 1. 定义事件，mousedown事件监听器(一直监听)，点击可拖拽项时，创建幽灵元素，并且将被点击的元素隐藏。在mousedown中绑定mousemove和mouseup事件监听器
 2. mouseup中，移除mousemove和mouseup事件监听器
@@ -60,3 +60,52 @@ const dragContainer = new DragContainer(container);
 
 1. 删除幽灵元素，并且将被点击的元素显示
 2. 移除mousemove和mouseup事件监听器
+
+## 拖动排序
+
+1. 记录被拖动元素的初始initialIndex
+2. 在mousemove事件中，检测幽灵元素与其他可拖拽项的碰撞，得到targetIndex
+   如果当前`targetIndex < initialIndex`，说明被拖动元素在向前移动，需要将index到initialIndex之间的元素向后移动一个位置，移动的距离为被拖动元素的高度
+   如果当前`targetIndex > initialIndex`，说明被拖动元素在向后移动，需要将initialIndex到index之间的元素向前移动一个位置
+
+### 得到targetIndex
+
+为了方便管理，一开始的时候保存拖拽元素数组，而不是每次都重新获取
+
+```javascript
+const draggableItems = [{
+  element: HTMLElement,
+  rawRect: DOMRect
+  rect: DOMRect
+}, ...]
+
+const ghostItem = {element: HTMLElement,rawRect: DOMRectrect: DOMRect}
+```
+
+initDraggableItems初始化draggableItems，注意rect是只读的非枚举属性，不能使用展开运算符进行复制，需要手动创建一个新的对象
+
+```javascript
+initDraggableItems(container) {
+    this.draggableItems = Array.from(container.children).map((item) => {
+      const rawRect = item.getBoundingClientRect();
+      // rawRect是非枚举属性，所以需要复制一份
+      const rect = {
+        left: rawRect.left,
+        top: rawRect.top,
+        right: rawRect.right,
+        bottom: rawRect.bottom,
+        width: rawRect.width,
+        height: rawRect.height,
+      };
+
+      return {
+        element: item,
+        rawRect: { ...rect },
+        rect: { ...rect },
+      };
+    });
+  }
+```
+
+1. 判断幽灵元素的中心点是否在某个元素的边界框内
+2. 如果在，返回该元素的index作为targetIndex
