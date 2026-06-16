@@ -5,6 +5,9 @@ export class DragContainer {
   //{element: HTMLElement,rawRect: DOMRectrect: DOMRect}
   containerItem = {};
 
+  // 注意保存的是相对坐标，是相对container的
+  previewItem = {};
+
   // 幽灵元素{element: HTMLElement,rawRect: DOMRectrect: DOMRect}
   ghostItem = {};
   offsetX = 0;
@@ -12,8 +15,8 @@ export class DragContainer {
 
   // 拖动元素的初始index
   initialIndex = -1;
-  // 当前碰撞的目标元素index
-  targetIndex = -1;
+  // 当前ghost中心点对应的插入位置index（插入到该index对应元素之前）
+  insertIndex = -1;
   // [{element: HTMLElement,rawRect: DOMRectrect: DOMRect}, ...]
   draggableItems = [];
 
@@ -130,6 +133,46 @@ export class DragContainer {
     return ghostWrapper;
   }
 
+  // 根据传来元素创建预览元素
+  createPreviewElement(element) {
+    const previewWrapper = document.createElement("div");
+    previewWrapper.classList.add(CSS.dragDropPreviewConstant);
+    // 设置预览元素的位置和尺寸，rect是相对于viewport的，所以需要减去container的偏移
+    const rect = element.getBoundingClientRect();
+    const containerRect = this.containerItem.rawRect;
+    previewWrapper.style.left = `${rect.left - containerRect.left}px`;
+    previewWrapper.style.top = `${rect.top - containerRect.top}px`;
+    previewWrapper.style.height = `${rect.height}px`;
+    previewWrapper.style.width = `${rect.width}px`;
+
+    const previewInner = document.createElement("div");
+    previewInner.classList.add(CSS.dragDropPreviewFlexContainer);
+    const previewContent = document.createElement("div");
+    previewContent.classList.add(
+      CSS.dragDropPreviewInner,
+      CSS.dragDropPreviewDefault,
+    );
+    previewInner.appendChild(previewContent);
+    previewWrapper.appendChild(previewInner);
+
+    // 预览元素的rawRect和rect属性
+    this.previewItem = {
+      element: previewWrapper,
+      rawRect: {
+        top: rect.top - containerRect.top,
+        height: rect.height,
+        width: rect.width,
+      },
+      rect: {
+        top: rect.top - containerRect.top,
+        height: rect.height,
+        width: rect.width,
+      },
+    };
+
+    return previewWrapper;
+  }
+
   // 更新幽灵元素位置
   updateGhostPosition(x, y) {
     if (this.ghostItem.element) {
@@ -142,79 +185,126 @@ export class DragContainer {
     }
   }
 
-  // 碰撞检测，得到目标index
-  getTargetDraggedEleIndex(rect) {
-    // rect是 ghostElement 的边界框
-    const ghostCenterX = rect.left + rect.width / 2;
+  // 二分查找插入位置：用 ghost 中心 Y 坐标在元素视觉位置序列中定位
+  // 返回插入位置的 index（插在该 index 对应元素之前），而非"碰撞命中"的元素
+  getInsertIndex(rect) {
+    const getTranslateY = (item) => {
+      const transform = item.element.style.transform;
+      if (!transform) return 0;
+      const match = transform.match(/translateY\((-?\d+)px\)/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+
     const ghostCenterY = rect.top + rect.height / 2;
+    const ghostCenterX = rect.left + rect.width / 2;
     const containerRect = this.containerItem.rawRect;
 
-    // 判断逻辑是，如果拖拽元素中心点在某个元素的范围内，就认为碰撞了
-    for (let i = 0; i < this.draggableItems.length; i++) {
-      const item = this.draggableItems[i];
-      const eleRect = item.rect;
-      // 检查 ghostElement 的中心点是否在 ele 的边界框内
-      if (
-        ghostCenterX >= eleRect.left &&
-        ghostCenterX <= eleRect.right &&
-        ghostCenterY >= eleRect.top &&
-        ghostCenterY <= eleRect.bottom
-      ) {
-        return i;
-      }
-    }
     if (
-      ghostCenterX < containerRect.left ||
-      ghostCenterX > containerRect.right ||
       ghostCenterY < containerRect.top ||
-      ghostCenterY > containerRect.bottom
+      ghostCenterY > containerRect.bottom ||
+      ghostCenterX < containerRect.left ||
+      ghostCenterX > containerRect.right
     ) {
       return -1;
     }
 
-    return this.targetIndex;
+    let low = 0;
+    let high = this.draggableItems.length;
+
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      const item = this.draggableItems[mid];
+      const translateY = getTranslateY(item);
+      const top = item.rect.top + translateY;
+      const bottom = item.rect.bottom + translateY;
+      const midpoint = (top + bottom) / 2;
+
+      if (ghostCenterY < midpoint) {
+        high = mid;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    return low;
   }
 
-  // 更新元素位置，使用transform进行位置调整
-  reflowWrapperElements(initialIndex, targetIndex) {
-    if (
-      initialIndex === -1 ||
-      targetIndex === -1 ||
-      initialIndex === targetIndex
-    ) {
-      // 如果回到了原位，必须把所有元素的 transform 都清零！
+  reflowWrapperElements(initialIndex, insertIndex) {
+    // 如果移出了容器外，所有元素回到原位
+    if (insertIndex === -1) {
       this.draggableItems.forEach((item) => {
-        item.element.style.transform = `translateY(0)`;
+        item.element.style.transform = "translateY(0)";
       });
       return;
     }
 
-    // 如果targetIndex < initialIndex，说明被拖动元素在向前移动，
-    // 需要将index到initialIndex之间的元素向后移动一个位置，
-    // 移动的距离为被拖动元素的高度
-    const direction = targetIndex > initialIndex ? -1 : 1;
     const initialItem = this.draggableItems[initialIndex];
-    const targetItem = this.draggableItems[targetIndex];
-    const translateY = direction * initialItem.rect.height;
 
-    // 需要考虑css的 gap 属性
-    const gap = parseFloat(
-      getComputedStyle(this.containerItem.element).gap || "0",
-    );
+    // 计算一个身位的距离距离为被拖动元素的top
+    // 和下一个元素top的差值,如果是最后一个元素，则使用它的top到底部的距离作为身位距离
+    const step =
+      initialIndex < this.draggableItems.length - 1
+        ? this.draggableItems[initialIndex + 1].rect.top - initialItem.rect.top
+        : this.containerItem.rawRect.bottom - initialItem.rect.top;
 
-    const translateYWithGap = translateY + direction * gap;
-
-    for (let i = 0; i < this.draggableItems.length; i++) {
-      const item = this.draggableItems[i];
-      if (
-        i >= Math.min(initialIndex, targetIndex) &&
-        i <= Math.max(initialIndex, targetIndex)
-      ) {
-        item.element.style.transform = `translateY(${translateYWithGap}px)`;
-      } else {
+    this.draggableItems.forEach((item, index) => {
+      // 1. 被拖拽元素本身，不参与 translate 位移（它隐藏在原位，由 ghost 代替移动）
+      if (index === initialIndex) {
         item.element.style.transform = "translateY(0)";
+        return;
       }
+
+      // 2. 向下拖（从小索引拖到大索引）
+      if (insertIndex > initialIndex) {
+        // 只有被跨越的元素才需要向上移动一个身位填补空缺
+        if (index > initialIndex && index < insertIndex) {
+          item.element.style.transform = `translateY(${-step}px)`;
+        } else {
+          item.element.style.transform = "translateY(0)";
+        }
+      }
+      // 3. 向上拖（从大索引拖到小索引）
+      else {
+        // 只有被跨越的元素才需要向下移动一个身位填补空缺
+        if (index >= insertIndex && index < initialIndex) {
+          item.element.style.transform = `translateY(${step}px)`;
+        } else {
+          item.element.style.transform = "translateY(0)";
+        }
+      }
+    });
+  }
+
+  // 更新预览元素位置
+  updatePreviewPosition(initialIndex, insertIndex) {
+    if (!this.previewItem.element) return;
+    const previewEl = this.previewItem.element;
+    const container = this.containerItem.element;
+    const containerRect = container.getBoundingClientRect();
+
+    if (initialIndex === insertIndex || insertIndex === -1) {
+      previewEl.style.top = `${this.previewItem.rawRect.top}px`;
+      return;
     }
+
+    if (insertIndex >= this.draggableItems.length) {
+      if (initialIndex === this.draggableItems.length - 1) {
+        previewEl.style.top = `${this.previewItem.rawRect.top}px`;
+        return;
+      }
+      const lastItem = this.draggableItems[this.draggableItems.length - 1];
+      if (lastItem) {
+        const step =
+          this.draggableItems.length > 1
+            ? this.draggableItems[1].rect.top - this.draggableItems[0].rect.top
+            : lastItem.rect.height;
+        previewEl.style.top = `${lastItem.rect.top - containerRect.top + step}px`;
+      }
+      return;
+    }
+
+    const targetItem = this.draggableItems[insertIndex];
+    previewEl.style.top = `${targetItem.rect.top - containerRect.top}px`;
   }
 
   destroyEvents() {
@@ -234,15 +324,29 @@ export class DragContainer {
       (item) => item.element === draggableItem,
     );
 
+    // 初始化拖拽元素的信息，特别是它的rect属性
+    this.initDraggableItems(this.containerItem.element);
+
     // 隐藏被点击的元素
     draggableItem.style.visibility = "hidden";
+
+    this.draggableItems.forEach((item) => {
+      item.element.classList.add(CSS.animated);
+    });
 
     // 创建幽灵元素
     this.ghostItem.element = this.createGhostElement(
       this.draggableItems[this.initialIndex].element,
     );
+
+    // 创建preview元素
+    // this.previewItem.element = this.createPreviewElement(
+    //   this.draggableItems[this.initialIndex].element,
+    // );
+
     // 添加到container容器中
     this.containerItem.element.appendChild(this.ghostItem.element);
+    // this.containerItem.element.appendChild(this.previewItem.element);
 
     // 保存偏移量
     const rect = this.draggableItems[this.initialIndex].rect;
@@ -255,79 +359,67 @@ export class DragContainer {
   };
 
   handleMouseMove = (e) => {
-    // 更新幽灵元素位置
     this.updateGhostPosition(
       e.clientX - this.offsetX,
       e.clientY - this.offsetY,
     );
 
-    // 检测碰撞，更新目标index
-    const targetIndex = this.getTargetDraggedEleIndex(this.ghostItem.rect);
-    if (targetIndex !== this.targetIndex) {
-      this.targetIndex = targetIndex;
+    const insertIndex = this.getInsertIndex(this.ghostItem.rect);
+    if (insertIndex === this.insertIndex) {
+      return;
     }
 
-    // 给元素加入过渡动画
-    this.draggableItems.forEach((item) => {
-      item.element.classList.add(CSS.animated);
-    });
+    this.insertIndex = insertIndex;
 
-    // 更新元素位置
-    this.reflowWrapperElements(this.initialIndex, this.targetIndex);
+    this.reflowWrapperElements(this.initialIndex, this.insertIndex);
   };
 
   handleMouseUp = (e) => {
-    // 删除幽灵元素，并且将被点击的元素显示
     if (this.ghostItem.element) {
       this.ghostItem.element.remove();
       this.ghostItem.element = null;
     }
 
-    // 显示被点击的元素
+    if (this.previewItem.element) {
+      this.previewItem.element.remove();
+      this.previewItem.element = null;
+    }
+
     if (this.draggableItems[this.initialIndex]) {
       this.draggableItems[this.initialIndex].element.style.visibility =
         "visible";
     }
 
-    // 应用dom结构变更
-    this.reorderDOM(this.initialIndex, this.targetIndex);
+    this.reorderDOM(this.initialIndex, this.insertIndex);
 
-    // 重置变量
     this.resetVariables();
 
-    // 移除过渡动画，并且将所有元素的 transform 都清零
     this.draggableItems.forEach((item) => {
       item.element.classList.remove(CSS.animated);
       item.element.style.transform = "translateY(0)";
     });
 
-    // 重新初始化initDraggableItems
     this.initDraggableItems(this.containerItem.element);
 
     this.destroyEvents();
   };
 
-  //reorderDOM
-  reorderDOM(initialIndex, targetIndex) {
+  reorderDOM(initialIndex, insertIndex) {
     if (
       initialIndex === -1 ||
-      targetIndex === -1 ||
-      initialIndex === targetIndex
+      insertIndex === -1 ||
+      initialIndex === insertIndex
     ) {
       return;
     }
-    const initialItem = this.draggableItems[initialIndex];
-    const targetItem = this.draggableItems[targetIndex];
-    const container = this.containerItem.element;
 
-    if (targetIndex > initialIndex) {
-      // 向后移动
-      container.insertBefore(
-        initialItem.element,
-        targetItem.element.nextSibling,
-      );
+    const container = this.containerItem.element;
+    const initialItem = this.draggableItems[initialIndex];
+
+    if (insertIndex >= this.draggableItems.length) {
+      container.appendChild(initialItem.element);
     } else {
-      // 向前移动
+      const targetItem = this.draggableItems[insertIndex];
       container.insertBefore(initialItem.element, targetItem.element);
     }
   }
@@ -338,6 +430,6 @@ export class DragContainer {
     this.offsetX = 0;
     this.offsetY = 0;
     this.initialIndex = -1;
-    this.targetIndex = -1;
+    this.insertIndex = -1;
   }
 }

@@ -179,3 +179,54 @@ reflowWrapperElements(initialIndex, targetIndex) {
 
 1. 动画结束后，清除所有元素的 transform 样式
 2. 更新draggableItems数组中元素的index和rect信息，以便下一次拖动时能够正确地计算位置
+
+## 实现 drag-drop-preview 功能
+
+html结构设计
+
+```html
+<div class="drag-drop-preview-constant" style="position:absolute">
+  <div class="drag-drop-preview-flex-container">
+    <div class="drag-drop-preview-inner drag-drop-preview-default"></div>
+  </div>
+</div>
+```
+
+1. drag-drop-preview-constant: 最外层，position: absolute，脱离文档流，用于跟随鼠标定位，不影响其他元素布局。
+2. drag-drop-preview-flex-container: 中间层，用 flex 布局，方便内部元素自适应对齐。
+3. drag-drop-preview-inner: 真正的内容区域，flex: 1，填满父容器，用户可以在这个元素上添加自定义样式和内容。
+4. drag-drop-preview-default: 预览元素的默认样式类，可以根据需要进行自定义样式的覆盖
+
+### 在 mousedown 事件中，创建并显示预览元素
+
+1. 创建预览元素，并将其添加到 containerItem.element 中
+
+### 在 mousemove 事件中，更新预览元素的位置
+
+1. 根据initialIndex和targetIndex，计算预览元素应该向上还是向下移动，以及移动的距离。移动的距离为差值的绝对值乘以被拖动元素的高度，再加上gap的距离
+2. 更新预览元素的位置，使其跟随被拖动元素移动
+
+可以试试在之前transform上计算
+
+### 发现之前更新元素位置的逻辑有问题
+
+检测碰撞一直使用原始rect
+虽然视觉上使用transform移动了元素，但是碰撞检测还是使用之前的rect进行判断，之前看起来没有问题是因为基于原始的rect进行碰撞检测，在初始位置的时候是没有问题的，但是当元素发生位移后，再想要正确地进行碰撞检测，就需要基于元素的当前rect进行判断，而不是之前的rect
+
+优化过程
+
+1. mouseDown中，初始化保存每个拖拽项的信息，特别是它的rect属性
+2. mouseMove中，计算targetIndex，具体计算思路是
+   1. 获取幽灵元素的中心点位置
+   2. 遍历每个拖拽项，获取开始结束位置（rectTop+translate，+rectHeight）
+   3. 判断中心点位置是否在开始结束位置之间，并且判断是在上半部分还是下半部分，得到insertIndex，表示应该插入到哪个位置
+3. mouseMove中，更新元素位置，具体更新思路是
+   1. 如果 insertIndex 没有变化，不需要更新元素位置
+   2. 如果insertIndex === -1，所有元素回原位、
+   3. 计算需要移动的距离
+   4. 遍历所有元素，如果是拖动元素，跳过。根据initialIndex和insertIndex的关系，判断元素应该向上还是向下移动，并且设置transform。
+      注意：向上还是向下相对关系是拖动开始就确定的，如果一开始是向下移动，那么后续都是走向下逻辑，这里是相对初始位置的。然后遍历所有元素设置transform
+
+但是现在mousemove 事件触发频率过高导致动画重置，当鼠标在两个元素的临界点（中线）附近移动时，insertIndex 会在 n 和 n+1 之间频繁闪烁。
+
+思路：只在 insertIndex 真正发生变化时才触发回流，且绝对不要在动画还没结束时反复设置相同的 transform。

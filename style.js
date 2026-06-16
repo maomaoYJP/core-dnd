@@ -22,8 +22,32 @@ const css = {
   },
   [CSS.dragGhost]: {
     position: "fixed",
+    "z-index": 9999 /* 确保幽灵元素在最上层 */,
     "pointer-events": "none" /* 使幽灵元素不响应鼠标事件 */,
     opacity: 1.0 /* 可选：调整幽灵元素的透明度 */,
+  },
+
+  // 预览相关的样式
+  [CSS.dragDropPreviewConstant]: {
+    position: "absolute",
+    "pointer-events": "none",
+    width: "100%",
+    overflow: "hidden",
+  },
+  [CSS.dragDropPreviewFlexContainer]: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    "align-items": "stretch",
+    "justify-content": "stretch",
+    "pointer-events": "none",
+  },
+  [CSS.dragDropPreviewInner]: {
+    flex: 1,
+  },
+  [CSS.dragDropPreviewDefault]: {
+    border: "2px dashed #999",
+    "background-color": "#f0f0f0",
   },
 };
 
