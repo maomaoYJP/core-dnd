@@ -227,6 +227,19 @@ html结构设计
    4. 遍历所有元素，如果是拖动元素，跳过。根据initialIndex和insertIndex的关系，判断元素应该向上还是向下移动，并且设置transform。
       注意：向上还是向下相对关系是拖动开始就确定的，如果一开始是向下移动，那么后续都是走向下逻辑，这里是相对初始位置的。然后遍历所有元素设置transform
 
-但是现在mousemove 事件触发频率过高导致动画重置，当鼠标在两个元素的临界点（中线）附近移动时，insertIndex 会在 n 和 n+1 之间频繁闪烁。
+现在insertIndex的意思是insert-before，然后也没有屏蔽当前拖动的元素。
+所以会出现一种情况，就是，拖动的是第三个元素，然后往上移动到第二个元素下半部分insertIndex是2，移动到第四个元素上半部分是3。
+插在2之前和插在3之前，都是把拖动元素放在第三个位置。这两个情况是一样的，都是把拖动元素放在第三个位置
 
-思路：只在 insertIndex 真正发生变化时才触发回流，且绝对不要在动画还没结束时反复设置相同的 transform。
+### preview显示
+
+更新preview思路
+
+1. 根据insertIndex，可以知道 item[insertIndex] 的当前视觉位置 = rect.top + translateY
+2. 也就是说，根据目标元素偏移的距离，就可以知道preview应该显示的位置
+3. 不需要需要考虑到 gap 的问题，gap不包含在计算中，需要独立算出
+4. 如果是插到最后一个，直接算出即可
+
+```
+newTop = last.rect.bottom - initialItem.rect.height - containerTop;
+```

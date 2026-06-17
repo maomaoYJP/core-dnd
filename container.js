@@ -137,6 +137,7 @@ export class DragContainer {
   createPreviewElement(element) {
     const previewWrapper = document.createElement("div");
     previewWrapper.classList.add(CSS.dragDropPreviewConstant);
+    previewWrapper.classList.add(CSS.animated);
     // 设置预览元素的位置和尺寸，rect是相对于viewport的，所以需要减去container的偏移
     const rect = element.getBoundingClientRect();
     const containerRect = this.containerItem.rawRect;
@@ -185,20 +186,57 @@ export class DragContainer {
     }
   }
 
-  // 二分查找插入位置：用 ghost 中心 Y 坐标在元素视觉位置序列中定位
-  // 返回插入位置的 index（插在该 index 对应元素之前），而非"碰撞命中"的元素
-  getInsertIndex(rect) {
-    const getTranslateY = (item) => {
-      const transform = item.element.style.transform;
-      if (!transform) return 0;
-      const match = transform.match(/translateY\((-?\d+)px\)/);
-      return match ? parseInt(match[1], 10) : 0;
-    };
+  // 更新预览元素位置
+  updatePreviewPosition(initialIndex, insertIndex) {
+    if (!this.previewItem.element) return;
+    const previewEl = this.previewItem.element;
+    const rawTop = this.previewItem.rawRect.top;
 
+    if (insertIndex === -1 || insertIndex === initialIndex) {
+      previewEl.style.top = `${rawTop}px`;
+      return;
+    }
+
+    const items = this.draggableItems;
+    const containerTop = this.containerItem.rawRect.top;
+    const initialItem = items[initialIndex];
+
+    let newTop;
+    if (insertIndex >= items.length) {
+      const last = items[items.length - 1];
+      newTop = last.rect.bottom - initialItem.rect.height - containerTop;
+    } else {
+      // 中间：preview 占据 item[insertIndex] 上方"被让出的 slot"
+      // step = 一整个身位（initialHeight + gap），从相邻 item 的 rect 差推出
+      const step =
+        initialIndex < items.length - 1
+          ? items[initialIndex + 1].rect.top - initialItem.rect.top
+          : this.containerItem.rawRect.bottom - initialItem.rect.top;
+      const target = items[insertIndex];
+      const targetVisualTop = target.rect.top + this.getTranslateY(target);
+      newTop = targetVisualTop - step - containerTop;
+    }
+
+    previewEl.style.top = `${newTop}px`;
+  }
+
+  getTranslateY(item) {
+    const transform = item.element.style.transform;
+    if (!transform) return 0;
+    // translateY 值通常是小数，必须匹配带小数点的形式
+    const match = transform.match(/translateY\((-?[\d.]+)px\)/);
+    return match ? parseFloat(match[1]) : 0;
+  }
+
+  // 二分查找插入位置：用 ghost 中心 Y 坐标在元素视觉位置序列中定位
+  // 采用 insert-before 语义：insertIndex = i 表示插到 item[i] 之前
+  // 范围 [0, N]：0 = 顶部（item[0] 之前），N = 底部（item[N-1] 之后）
+  getInsertIndex(rect) {
     const ghostCenterY = rect.top + rect.height / 2;
     const ghostCenterX = rect.left + rect.width / 2;
-    const containerRect = this.containerItem.rawRect;
 
+    // 容器边界判断：ghost 中心是 viewport 坐标，要和 viewport 坐标的容器边界比
+    const containerRect = this.containerItem.rawRect;
     if (
       ghostCenterY < containerRect.top ||
       ghostCenterY > containerRect.bottom ||
@@ -208,15 +246,16 @@ export class DragContainer {
       return -1;
     }
 
+    // 二分查找用 viewport 绝对坐标，因为 item.rect.top 也是 viewport 绝对坐标
     let low = 0;
     let high = this.draggableItems.length;
 
     while (low < high) {
       const mid = Math.floor((low + high) / 2);
       const item = this.draggableItems[mid];
-      const translateY = getTranslateY(item);
+      const translateY = this.getTranslateY(item);
       const top = item.rect.top + translateY;
-      const bottom = item.rect.bottom + translateY;
+      const bottom = top + item.rect.height;
       const midpoint = (top + bottom) / 2;
 
       if (ghostCenterY < midpoint) {
@@ -231,10 +270,13 @@ export class DragContainer {
 
   reflowWrapperElements(initialIndex, insertIndex) {
     // 如果移出了容器外，所有元素回到原位
-    if (insertIndex === -1) {
+    if (insertIndex === -1 || insertIndex === initialIndex) {
       this.draggableItems.forEach((item) => {
         item.element.style.transform = "translateY(0)";
       });
+
+      // 预览元素也回到原位
+      this.updatePreviewPosition(initialIndex, insertIndex);
       return;
     }
 
@@ -254,9 +296,11 @@ export class DragContainer {
         return;
       }
 
-      // 2. 向下拖（从小索引拖到大索引）
+      // 2. 向下拖，这里是相对一开始的位置来判断的
+      // 不是相对上一次的位置来判断的
       if (insertIndex > initialIndex) {
-        // 只有被跨越的元素才需要向上移动一个身位填补空缺
+        // insert-before 语义：ghost 落在 item[insertIndex] 之前
+        // 需要让位的是 (initialIndex, insertIndex) 区间的元素
         if (index > initialIndex && index < insertIndex) {
           item.element.style.transform = `translateY(${-step}px)`;
         } else {
@@ -265,7 +309,8 @@ export class DragContainer {
       }
       // 3. 向上拖（从大索引拖到小索引）
       else {
-        // 只有被跨越的元素才需要向下移动一个身位填补空缺
+        // insert-before 语义：ghost 落在 item[insertIndex] 之前
+        // 需要让位的是 [insertIndex, initialIndex) 区间的元素
         if (index >= insertIndex && index < initialIndex) {
           item.element.style.transform = `translateY(${step}px)`;
         } else {
@@ -273,38 +318,6 @@ export class DragContainer {
         }
       }
     });
-  }
-
-  // 更新预览元素位置
-  updatePreviewPosition(initialIndex, insertIndex) {
-    if (!this.previewItem.element) return;
-    const previewEl = this.previewItem.element;
-    const container = this.containerItem.element;
-    const containerRect = container.getBoundingClientRect();
-
-    if (initialIndex === insertIndex || insertIndex === -1) {
-      previewEl.style.top = `${this.previewItem.rawRect.top}px`;
-      return;
-    }
-
-    if (insertIndex >= this.draggableItems.length) {
-      if (initialIndex === this.draggableItems.length - 1) {
-        previewEl.style.top = `${this.previewItem.rawRect.top}px`;
-        return;
-      }
-      const lastItem = this.draggableItems[this.draggableItems.length - 1];
-      if (lastItem) {
-        const step =
-          this.draggableItems.length > 1
-            ? this.draggableItems[1].rect.top - this.draggableItems[0].rect.top
-            : lastItem.rect.height;
-        previewEl.style.top = `${lastItem.rect.top - containerRect.top + step}px`;
-      }
-      return;
-    }
-
-    const targetItem = this.draggableItems[insertIndex];
-    previewEl.style.top = `${targetItem.rect.top - containerRect.top}px`;
   }
 
   destroyEvents() {
@@ -340,13 +353,13 @@ export class DragContainer {
     );
 
     // 创建preview元素
-    // this.previewItem.element = this.createPreviewElement(
-    //   this.draggableItems[this.initialIndex].element,
-    // );
+    this.previewItem.element = this.createPreviewElement(
+      this.draggableItems[this.initialIndex].element,
+    );
 
     // 添加到container容器中
     this.containerItem.element.appendChild(this.ghostItem.element);
-    // this.containerItem.element.appendChild(this.previewItem.element);
+    this.containerItem.element.appendChild(this.previewItem.element);
 
     // 保存偏移量
     const rect = this.draggableItems[this.initialIndex].rect;
@@ -370,8 +383,10 @@ export class DragContainer {
     }
 
     this.insertIndex = insertIndex;
+    console.log("insertIndex:", this.insertIndex);
 
     this.reflowWrapperElements(this.initialIndex, this.insertIndex);
+    this.updatePreviewPosition(this.initialIndex, this.insertIndex);
   };
 
   handleMouseUp = (e) => {
