@@ -243,3 +243,17 @@ html结构设计
 ```
 newTop = last.rect.bottom - initialItem.rect.height - containerTop;
 ```
+
+## 实现 auto-scroll 功能，当拖动元素接近容器边缘时，自动滚动容器，以便用户能够继续拖动元素到容器内的其他位置。
+
+注意preview使用的是相对容器的定位，而所有其它位置使用的是相对于视口的定位
+
+1. 在 mousemove 事件中，检测幽灵元素是否接近容器的边缘
+2. 在容器边缘有一个范围，根据幽灵元素底部位置和容器底部位置的差值，判断是否需要自动滚动，和滚动速度。
+
+现在整个坐标计算有点复杂，需要好好思路一下
+
+1. 获取insertIndex，现在计算insertIndex是基于一开始计算得到的rect进行的。已经包含了scrollTop的影响。但是这是针对一开始的，如果初始化之后，用户滚动了容器，那么这些rect就不对了。所以在点击的时候，保存一个initialScrollTop，在计算insertIndex的时候，应该基于当前的scrollTop和initialScrollTop的差值来计算出一个修正值，然后在原来的rect基础上加上这个修正值，这样就能够得到正确的insertIndex了
+2. 对于计算preview的位置，现在的计算是基于item[insertIndex].rect.top来计算的，这个rect.top也是一开始计算得到的，并且包含了scrollTop的影响，所以同样需要加上一个修正值，来得到正确的preview位置。具体来说就是加上initialScrollTop
+
+不一样是因为preview使用相对容器定位。而getInsertIndex使用的是相对于视口的坐标，如果我滚动的时候重新计算rect，那么就不需要加上initialScrollTop了

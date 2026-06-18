@@ -141,8 +141,10 @@ export class DragContainer {
     // 设置预览元素的位置和尺寸，rect是相对于viewport的，所以需要减去container的偏移
     const rect = element.getBoundingClientRect();
     const containerRect = this.containerItem.rawRect;
+    // 还有scrollTop的偏移
+    const scrollTop = this.containerItem.element.scrollTop;
     previewWrapper.style.left = `${rect.left - containerRect.left}px`;
-    previewWrapper.style.top = `${rect.top - containerRect.top}px`;
+    previewWrapper.style.top = `${rect.top - containerRect.top + scrollTop}px`;
     previewWrapper.style.height = `${rect.height}px`;
     previewWrapper.style.width = `${rect.width}px`;
 
@@ -160,12 +162,12 @@ export class DragContainer {
     this.previewItem = {
       element: previewWrapper,
       rawRect: {
-        top: rect.top - containerRect.top,
+        top: rect.top - containerRect.top + scrollTop,
         height: rect.height,
         width: rect.width,
       },
       rect: {
-        top: rect.top - containerRect.top,
+        top: rect.top - containerRect.top + scrollTop,
         height: rect.height,
         width: rect.width,
       },
@@ -183,6 +185,8 @@ export class DragContainer {
       // 同时更新ghostItem的rect属性
       this.ghostItem.rect.left = x;
       this.ghostItem.rect.top = y;
+      this.ghostItem.rect.right = x + this.ghostItem.rect.width;
+      this.ghostItem.rect.bottom = y + this.ghostItem.rect.height;
     }
   }
 
@@ -202,9 +206,14 @@ export class DragContainer {
     const initialItem = items[initialIndex];
 
     let newTop;
+    const scrollTop = this.containerItem.element.scrollTop;
     if (insertIndex >= items.length) {
       const last = items[items.length - 1];
-      newTop = last.rect.bottom - initialItem.rect.height - containerTop;
+      newTop =
+        last.rect.bottom -
+        initialItem.rect.height -
+        containerTop +
+        this.initialScrollTop;
     } else {
       // 中间：preview 占据 item[insertIndex] 上方"被让出的 slot"
       // step = 一整个身位（initialHeight + gap），从相邻 item 的 rect 差推出
@@ -213,8 +222,12 @@ export class DragContainer {
           ? items[initialIndex + 1].rect.top - initialItem.rect.top
           : this.containerItem.rawRect.bottom - initialItem.rect.top;
       const target = items[insertIndex];
-      const targetVisualTop = target.rect.top + this.getTranslateY(target);
-      newTop = targetVisualTop - step - containerTop;
+      const targetVisualTop =
+        target.rect.top -
+        containerTop +
+        this.initialScrollTop +
+        this.getTranslateY(target);
+      newTop = targetVisualTop - step;
     }
 
     previewEl.style.top = `${newTop}px`;
@@ -246,6 +259,8 @@ export class DragContainer {
       return -1;
     }
 
+    const scrollTop = this.containerItem.element.scrollTop;
+
     // 二分查找用 viewport 绝对坐标，因为 item.rect.top 也是 viewport 绝对坐标
     let low = 0;
     let high = this.draggableItems.length;
@@ -253,7 +268,8 @@ export class DragContainer {
     while (low < high) {
       const mid = Math.floor((low + high) / 2);
       const item = this.draggableItems[mid];
-      const translateY = this.getTranslateY(item);
+      const translateY =
+        this.getTranslateY(item) - scrollTop + this.initialScrollTop;
       const top = item.rect.top + translateY;
       const bottom = top + item.rect.height;
       const midpoint = (top + bottom) / 2;
@@ -320,6 +336,22 @@ export class DragContainer {
     });
   }
 
+  // 自动滚动容器：当 ghost 元素接近容器边界时，自动滚动容器
+  autoScrollContainer() {
+    const container = this.containerItem.element;
+    const containerRect = this.containerItem.rawRect;
+    const ghostRect = this.ghostItem.rect;
+
+    const scrollThreshold = 20; // 距离容器边界多少像素时开始滚动
+    const scrollSpeed = 5; // 每次滚动的像素数
+
+    if (ghostRect.top - containerRect.top < scrollThreshold) {
+      container.scrollTop -= scrollSpeed;
+    } else if (containerRect.bottom - ghostRect.bottom < scrollThreshold) {
+      container.scrollTop += scrollSpeed;
+    }
+  }
+
   destroyEvents() {
     window.removeEventListener("mousemove", this.handleMouseMove);
     window.removeEventListener("mouseup", this.handleMouseUp);
@@ -366,6 +398,8 @@ export class DragContainer {
     this.offsetX = e.clientX - rect.left;
     this.offsetY = e.clientY - rect.top;
 
+    this.initialScrollTop = this.containerItem.element.scrollTop;
+
     // 绑定mousemove和mouseup事件
     window.addEventListener("mousemove", this.handleMouseMove);
     window.addEventListener("mouseup", this.handleMouseUp);
@@ -377,13 +411,15 @@ export class DragContainer {
       e.clientY - this.offsetY,
     );
 
+    // 如果接近容器边界，自动滚动
+    this.autoScrollContainer();
+
     const insertIndex = this.getInsertIndex(this.ghostItem.rect);
     if (insertIndex === this.insertIndex) {
       return;
     }
 
     this.insertIndex = insertIndex;
-    console.log("insertIndex:", this.insertIndex);
 
     this.reflowWrapperElements(this.initialIndex, this.insertIndex);
     this.updatePreviewPosition(this.initialIndex, this.insertIndex);
