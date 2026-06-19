@@ -248,17 +248,6 @@ export class DragContainer {
     const ghostCenterY = rect.top + rect.height / 2;
     const ghostCenterX = rect.left + rect.width / 2;
 
-    // 容器边界判断：ghost 中心是 viewport 坐标，要和 viewport 坐标的容器边界比
-    const containerRect = this.containerItem.rawRect;
-    if (
-      ghostCenterY < containerRect.top ||
-      ghostCenterY > containerRect.bottom ||
-      ghostCenterX < containerRect.left ||
-      ghostCenterX > containerRect.right
-    ) {
-      return -1;
-    }
-
     const scrollTop = this.containerItem.element.scrollTop;
 
     // 二分查找用 viewport 绝对坐标，因为 item.rect.top 也是 viewport 绝对坐标
@@ -336,6 +325,15 @@ export class DragContainer {
     });
   }
 
+  isPointInContainer(x, y, containerRect) {
+    return (
+      x >= containerRect.left &&
+      x <= containerRect.right &&
+      y >= containerRect.top &&
+      y <= containerRect.bottom
+    );
+  }
+
   // 自动滚动容器：当 ghost 元素接近容器边界时，自动滚动容器
   autoScrollContainer() {
     const container = this.containerItem.element;
@@ -410,6 +408,22 @@ export class DragContainer {
       e.clientX - this.offsetX,
       e.clientY - this.offsetY,
     );
+
+    // 判断是否在容器内，如果不在容器内，直接返回就行
+    const ghostCenterY =
+      this.ghostItem.rect.top + this.ghostItem.rect.height / 2;
+    const ghostCenterX =
+      this.ghostItem.rect.left + this.ghostItem.rect.width / 2;
+
+    if (
+      !this.isPointInContainer(
+        ghostCenterX,
+        ghostCenterY,
+        this.containerItem.rawRect,
+      )
+    ) {
+      return;
+    }
 
     // 如果接近容器边界，自动滚动
     this.autoScrollContainer();
