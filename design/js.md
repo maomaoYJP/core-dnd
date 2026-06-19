@@ -257,3 +257,181 @@ newTop = last.rect.bottom - initialItem.rect.height - containerTop;
 2. 对于计算preview的位置，现在的计算是基于item[insertIndex].rect.top来计算的，这个rect.top也是一开始计算得到的，并且包含了scrollTop的影响，所以同样需要加上一个修正值，来得到正确的preview位置。具体来说就是加上initialScrollTop
 
 不一样是因为preview使用相对容器定位。而getInsertIndex使用的是相对于视口的坐标，如果我滚动的时候重新计算rect，那么就不需要加上initialScrollTop了
+
+## 实现跨容器拖动
+
+### 重构项目结构
+
+1. 实现dragManager
+
+```javascript
+class DragManager {
+  constructor() {
+    this.containers = [];
+    this.session = null;
+    this.initEvent();
+  }
+
+  registerContainer(container) {
+    this.containers.push(container);
+  }
+  unregisterContainer(container) {
+    this.containers = this.containers.filter((c) => c !== container);
+  }
+
+  initEvent() {
+    window.addEventListener("mousedown", this.handleMouseDown);
+  }
+
+  handleMouseDown = (event) => {
+    // 找到点击的容器
+    // 如果点击的容器是注册过的容器，那么创建一个新的session
+    // 启动session
+    // 监听mousemove和mouseup事件
+  };
+
+  handleMouseMove = (event) => {
+    // 如果有session，那么调用session的start方法
+  };
+
+  handleMouseUp = (event) => {
+    // 如果有session，那么调用session的end方法
+    // 清空session
+    // 清空事件
+  };
+}
+```
+
+2. 拖动过程使用一个session类来管理，处理拖动过程中的状态和事件
+
+```javascript
+class DragSession {
+  constructor({ manager, sourceContainer, initialIndex, mouseDownEvent }) {
+    // 不变量（整次会话不变）
+    this.manager = manager;
+    this.sourceContainer = sourceContainer;
+    this.initialIndex = initialIndex;
+    this.mouseDownEvent = mouseDownEvent;
+
+    // 可变状态
+    this.activeContainer = sourceContainer;
+    this.insertIndex = initialIndex;
+    this.ghost = null; // {element, rect, update(x,y)}
+    this.preview = null; // {element}
+  }
+
+  start() {
+    // 隐藏被点击的元素
+    // 初始化activeContainer
+    // 都是container内部方法创建
+    // 创建幽灵元素
+    // 创建预览元素
+  }
+  move() {
+    // 更新幽灵元素位置
+    // 检测碰撞，得到新的activeContainer和insertIndex
+    // 重排元素位置
+    // 更新预览元素位置
+  }
+  end() {
+    // session状态清理
+    // container内部方法更新dom结构
+    // container内部方法清理，ghost、preview等
+  }
+}
+```
+
+3. container类专门负责管理容器内事，rect 维护、reflow 计算、preview 摆放、auto-scroll。
+
+```javascript
+class DragContainer {
+  constructor(element) {
+    //{element: HTMLElement,rawRect: DOMRect,rect: DOMRect}
+    this.element = element;
+    // [{element: HTMLElement,rawRect: DOMRectrect: DOMRect}, ...]
+    this.draggableItems = [];
+
+    this.initStructure();
+    this.refreshRects();
+
+    dragManager.registerContainer(this);
+  }
+
+  // ===== 初始化 =====
+  initStructure() {
+    // 把 children 包一层 .drag-draggable-wrapper（原 initStructure 逻辑）
+  }
+
+  // ===== 状态维护 =====
+  refreshRects() {
+    // 重新读取更新 元素rect
+    // 在 mousedown 触发时 / 拖动结束后 / Session 进入时调用
+  }
+
+  getGap() {
+    // 读 computedStyle.rowGap
+  }
+
+  // ===== 查询（Session 用） =====
+  containsPoint(x, y) {
+    // 判断点 (x, y) 是否在容器内，返回布尔值
+  }
+
+  findItemIndex(wrapperElement) {
+    // 返回 wrapperElement 在 draggableItems 中的 index，找不到返回 -1
+  }
+
+  // 二分查找：ghost 中心落在哪个插入位之前
+  // initialScrollTop 由 Session 传入，用于 scroll 修正
+  getInsertIndex(ghostRect, initialScrollTop) {
+    // 原 getInsertIndex 逻辑搬过来
+  }
+
+  // ===== 会话生命周期 hook（Session 调） =====
+  // 一开始需要做的事
+  enterSession() {
+    // 1. refreshRects()
+    // 2. 给所有 item.element 加 animated 类
+  }
+
+  // 收尾工作
+  leaveSession() {
+    // 1. 清所有 item 的 transform
+    // 2. 移除 animated 类
+    // 3. refreshRects()
+  }
+
+  // ===== 拖动期间的动作（Session 调） =====
+  // 让位动画：把 (initialIndex, insertIndex) 区间的元素平移
+  reflow(initialIndex, insertIndex) {
+    // 原 reflowWrapperElements 的逻辑
+  }
+
+  // 计算 preview 此刻在容器内（容器相对坐标系）应该处于的 top
+  computePreviewTop(
+    initialIndex,
+    insertIndex,
+    initialScrollTop,
+    draggedHeight,
+  ) {
+    // 原 updatePreviewPosition 计算 newTop 的部分
+    // 把 newTop 返回给 Session，由 Session 设置 preview.element.style.top
+  }
+
+  // 自动滚动：靠近边缘时滚动容器
+  autoScroll(ghostRect) {
+    // 原 autoScrollContainer 逻辑
+  }
+
+  // ===== 结束时（Session 调） =====
+  reorderDOM(initialIndex, insertIndex) {
+    // 原 reorderDOM 逻辑：把 draggedElement 插到新位置
+  }
+
+  // ===== 工具 =====
+  getTranslateY(item) {
+    // 解析 item.element.style.transform 里的 translateY
+    // 给 getInsertIndex / computePreviewTop 内部用
+  }
+}
+```

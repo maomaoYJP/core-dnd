@@ -1,3 +1,3 @@
-import { DragContainer } from "./container.js";
+import { DragContainer } from "./dragContainer.js";
 
 export { DragContainer };
