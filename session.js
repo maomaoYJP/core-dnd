@@ -95,14 +95,15 @@ export class DragSession {
       this.rafId = null;
     }
 
-    this.ghost.element.remove();
-    this.ghost = null;
+    // 幽灵元素飞到目标 slot（preview 所在位置），飞行结束后再做收尾
+    // 飞行期间保持当前画面冻结：被拖元素仍隐藏、其它元素仍让位、preview 仍在
+    this.activeContainer.animateGhostToTarget(this.ghost, () => {
+      this.activeContainer.reorderDOM(this.initialIndex, this.insertIndex);
+      this.sourceContainer.endSession();
 
-    // container内部方法更新dom结构
-    this.activeContainer.reorderDOM(this.initialIndex, this.insertIndex);
-
-    // 结束，session状态清理
-    this.sourceContainer.endSession();
+      this.ghost.element.remove();
+      this.ghost = null;
+    });
   }
 
   createGhostElement(element) {

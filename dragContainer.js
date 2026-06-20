@@ -241,6 +241,35 @@ export class DragContainer {
     }
   }
 
+  // 让幽灵元素本身飞到目标 slot，再交还给 session 收尾（reorderDOM/清理）
+  // 目标 slot 就是 preview 当前所在位置；用 fixed 定位的 left/top 直接过渡
+  // 飞行结束（或没有 preview 可飞）后调用 onComplete
+  animateGhostToTarget(ghost, onComplete) {
+    const ghostEl = ghost.element;
+    const target = this.previewItem.element;
+
+    // 没有 preview（如拖出容器外），无需飞行，直接收尾
+    if (!target) {
+      onComplete();
+      return;
+    }
+
+    // preview 与幽灵元素同宽同位，其视口坐标即为目标落点
+    const targetRect = target.getBoundingClientRect();
+
+    const finish = () => {
+      ghostEl.removeEventListener("transitionend", finish);
+      onComplete();
+    };
+
+    // 添加过渡类，改变 left/top 触发飞行动画
+    ghostEl.classList.add(CSS.animated);
+    ghostEl.style.left = `${targetRect.left}px`;
+    ghostEl.style.top = `${targetRect.top}px`;
+
+    ghostEl.addEventListener("transitionend", finish);
+  }
+
   // ==================== preview相关 ====================
   createPreviewElement(element) {
     const previewWrapper = document.createElement("div");
