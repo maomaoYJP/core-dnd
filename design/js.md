@@ -435,3 +435,29 @@ class DragContainer {
   }
 }
 ```
+
+## 优化自动滚动
+
+### 修改结构，让滚动的实现放到session中，container提供接口让session调用
+
+问题：发现如果在container内部实现自动滚动，由于滚动过程中还需要触发mousemove事件来更新幽灵元素的位置和碰撞检测，过于耦合了，且逻辑不清晰
+
+我一开始的思路是，在mousemove事件中，先更新幽灵元素位置，检测是否需要自动滚动，如果需要就滚动容器，然后检测碰撞得到insertIndex，最后更新元素位置和预览元素位置。但是这样如果鼠标没有动，就无法触发mousemove事件，导致自动滚动无法持续进行。
+
+后续的思路是，利用requestAnimationFrame，但是将自动滚动逻辑全部放到container中。这时候session需要向container中传入一些状态，并且滚动之后还有一些状态需要session来更新，这样就导致session和container之间的耦合度过高，逻辑也不清晰。
+
+最后的思路是将自动滚动的实现放到session中，container提供接口让session调用。这样session负责整个拖动过程中的状态管理和逻辑处理，而container只负责提供一些必要的接口来支持session的功能。这样不仅逻辑清晰，而且耦合度也降低了。
+
+改进（改进整个session逻辑）：
+
+**整个设计的核心是将事件和渲染分离**
+
+1. 现在在manager中mousemove事件，只需要调用session的updatePointer方法，更新鼠标位置即可
+2. session中，updatePointer方法负责更新鼠标状态（this.pointer.x, this.pointer.y）
+3. 利用requestAnimationFrame，定义每次渲染需要做的事
+   1. 更新幽灵元素位置
+   2. 检测是否到达边缘需要自动滚动，如果需要，先滚动容器
+   3. 检测碰撞，得到新的activeContainer和insertIndex
+   4. 重排元素位置
+   5. 更新预览元素位置
+4. 这样每次渲染都会执行，可以一直检测自动滚动的状态，并且在滚动时也能保持幽灵元素和预览元素的位置更新，碰撞检测等逻辑也能正常工作。

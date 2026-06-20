@@ -13,6 +13,9 @@ export class DragContainer {
 
     this.previewItem = {};
 
+    // 自动滚动配置：threshold 为触发区宽度(px)，speed 为像素/帧
+    this.scrollConfig = { threshold: 20, minSpeed: 5, maxSpeed: 20 };
+
     this.initStructure();
     this.refreshRects();
 
@@ -188,19 +191,33 @@ export class DragContainer {
     });
   }
 
-  // 自动滚动：靠近边缘时滚动容器
-  autoScroll(ghostRect) {
-    const container = this.container.element;
+  // 自动滚动（纯函数）：根据 ghost 到边界的距离算出方向和速度，不实际滚动
+  // direction: -1 向上 / 0 不滚 / 1 向下；speed 单位为像素/帧
+  getScrollIntent(ghostRect) {
+    const { threshold, minSpeed, maxSpeed } = this.scrollConfig;
     const containerRect = this.container.rect;
 
-    const scrollThreshold = 20; // 距离容器边界多少像素时开始滚动
-    const scrollSpeed = 5; // 每次滚动的像素数
+    const top = ghostRect.top - containerRect.top;
+    const bottom = containerRect.bottom - ghostRect.bottom;
 
-    if (ghostRect.top - containerRect.top < scrollThreshold) {
-      container.scrollTop -= scrollSpeed;
-    } else if (containerRect.bottom - ghostRect.bottom < scrollThreshold) {
-      container.scrollTop += scrollSpeed;
+    // 距离越近(distance 越小) 速度越大，在 [minSpeed, maxSpeed] 间线性插值
+    const calcSpeed = (distance) => {
+      const ratio = (threshold - distance) / threshold; // 0~1
+      return minSpeed + (maxSpeed - minSpeed) * ratio;
+    };
+
+    if (top < threshold) {
+      return { direction: -1, speed: calcSpeed(top) };
     }
+    if (bottom < threshold) {
+      return { direction: 1, speed: calcSpeed(bottom) };
+    }
+    return { direction: 0, speed: 0 };
+  }
+
+  // 实际滚动容器
+  scrollBy(delta) {
+    this.container.element.scrollTop += delta;
   }
 
   // ===== 结束时（Session 调） =====

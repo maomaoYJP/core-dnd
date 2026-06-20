@@ -12,10 +12,13 @@ export class DragSession {
     this.activeContainer = sourceContainer;
     this.insertIndex = initialIndex;
     this.ghost = null; // {element: HTMLElement,rawRect: DOMRect,rect: DOMRect}
-    this.offsetX = 0;
-    this.offsetY = 0;
 
     this.preview = null; // {element}
+
+    // 输入状态：最新指针位置，由 mousemove 写入，frame 读取
+    this.pointer = { x: 0, y: 0 };
+    // 贯穿整次拖拽的渲染循环句柄
+    this.rafId = null;
   }
 
   start(event) {
@@ -27,28 +30,53 @@ export class DragSession {
     // 创建幽灵元素
     this.createGhostElement(draggedElement);
     document.body.appendChild(this.ghost.element);
-    this.offsetX = event.clientX - this.ghost.rect.left;
-    this.offsetY = event.clientY - this.ghost.rect.top;
 
     // 创建预览元素
     const previewElement =
       this.activeContainer.createPreviewElement(draggedElement);
     // 预览元素添加到 container 中
     this.activeContainer.addPreviewToContainer(previewElement);
+
+    // 一次性：给参与排序的元素加上动画类
+    this.sourceContainer.onSession();
+
+    // 记录初始指针位置，并启动贯穿整次拖拽的渲染循环
+    this.pointer.x = event.clientX;
+    this.pointer.y = event.clientY;
+    this.rafId = requestAnimationFrame(this.frame);
   }
 
-  move(event) {
-    this.sourceContainer.onSession();
-    // 更新幽灵元素位置
+  // mousemove 只更新指针，不做任何计算
+  updatePointer(event) {
+    this.pointer.x = event.clientX;
+    this.pointer.y = event.clientY;
+  }
+
+  // 渲染循环：拖拽全程每帧执行一次（鼠标不动也会跑，从而实现持续滚动）
+  frame = () => {
+    // 1. 用最新指针更新幽灵元素位置
+    const offsetX = this.mouseDownEvent.clientX - this.ghost.rawRect.left;
+    const offsetY = this.mouseDownEvent.clientY - this.ghost.rawRect.top;
     this.updateGhostPosition(
-      event.clientX - this.offsetX,
-      event.clientY - this.offsetY,
+      this.pointer.x - offsetX,
+      this.pointer.y - offsetY,
     );
 
-    // 自动滚动
-    this.activeContainer.autoScroll(this.ghost.rect);
+    // 2. 自动滚动：容器只负责算速度和滚动，timing 由这里掌控
+    const intent = this.activeContainer.getScrollIntent(this.ghost.rect);
+    if (intent.direction) {
+      this.activeContainer.scrollBy(intent.direction * intent.speed);
+    }
 
-    // 检测碰撞，得到新的activeContainer和insertIndex
+    // 3. 重新评估插入位置（滚动后相对位置变化，这里会持续更新排序）
+    this.evaluatePosition();
+
+    // 4. 排下一帧
+    this.rafId = requestAnimationFrame(this.frame);
+  };
+
+  // 计算插入位并按需重排（insertIndex 没变则跳过）
+  evaluatePosition() {
     const insertIndex = this.activeContainer.getInsertIndex(this.ghost.rect);
     if (insertIndex === this.insertIndex) {
       return;
@@ -59,7 +87,14 @@ export class DragSession {
     // 更新预览元素位置
     this.activeContainer.updatePreviewPosition(this.initialIndex, insertIndex);
   }
+
   end(event) {
+    // 先停掉渲染循环
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+
     this.ghost.element.remove();
     this.ghost = null;
 

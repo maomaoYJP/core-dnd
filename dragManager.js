@@ -50,9 +50,9 @@ class DragManager {
   };
 
   handleMouseMove = (event) => {
-    // 如果有session，那么调用session的start方法
+    // 事件只更新指针位置，真正的计算在 session 的 rAF 循环里做
     if (this.session) {
-      this.session.move(event);
+      this.session.updatePointer(event);
     }
   };
 
