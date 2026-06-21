@@ -155,10 +155,7 @@ export class DragContainer {
 
     // 计算一个身位的距离距离为被拖动元素的top
     // 和下一个元素top的差值,如果是最后一个元素，则使用它的top到底部的距离作为身位距离
-    const step =
-      initialIndex < this.draggableItems.length - 1
-        ? this.draggableItems[initialIndex + 1].rect.top - initialItem.rect.top
-        : this.container.rawRect.bottom - initialItem.rect.top;
+    const step = this.getStep(initialIndex);
 
     this.draggableItems.forEach((item, index) => {
       // 1. 被拖拽元素本身，不参与 translate 位移（它隐藏在原位，由 ghost 代替移动）
@@ -189,6 +186,18 @@ export class DragContainer {
         }
       }
     });
+  }
+
+  getStep(initialIndex) {
+    const initialItem = this.draggableItems[initialIndex];
+    // 需要考虑容器的gap
+    const gap = parseFloat(
+      window.getComputedStyle(this.container.element).gap || "0",
+    );
+
+    const step = this.draggableItems[initialIndex].rect.height + gap;
+
+    return step;
   }
 
   // 自动滚动（纯函数）：根据 ghost 到边界的距离算出方向和速度，不实际滚动
@@ -345,10 +354,7 @@ export class DragContainer {
     } else {
       // 中间：preview 占据 item[insertIndex] 上方"被让出的 slot"
       // step = 一整个身位（initialHeight + gap），从相邻 item 的 rect 差推出
-      const step =
-        initialIndex < items.length - 1
-          ? items[initialIndex + 1].rect.top - initialItem.rect.top
-          : this.container.rawRect.bottom - initialItem.rect.top;
+      const step = this.getStep(initialIndex);
       const target = items[insertIndex];
       const targetVisualTop =
         target.rect.top -
