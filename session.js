@@ -7,13 +7,12 @@ export class DragSession {
     this.sourceContainer = sourceContainer;
     this.initialIndex = initialIndex;
     this.mouseDownEvent = mouseDownEvent;
+    this.draggedItem = sourceContainer.draggableItems[initialIndex];
 
     // 可变状态
     this.activeContainer = sourceContainer;
     this.insertIndex = initialIndex;
     this.ghost = null; // {element: HTMLElement,rawRect: DOMRect,rect: DOMRect}
-
-    this.preview = null; // {element}
 
     // 输入状态：最新指针位置，由 mousemove 写入，frame 读取
     this.pointer = { x: 0, y: 0 };
@@ -22,23 +21,15 @@ export class DragSession {
   }
 
   start(event) {
-    // 开始拖动，sourceContainer 做一些准备工作
-    this.sourceContainer.startSession(this.initialIndex);
-
-    const draggedElement =
-      this.sourceContainer.draggableItems[this.initialIndex].element;
+    const draggedElement = this.draggedItem.element;
     // 创建幽灵元素
     this.createGhostElement(draggedElement);
     document.body.appendChild(this.ghost.element);
 
-    // 创建预览元素
-    const previewElement =
-      this.activeContainer.createPreviewElement(draggedElement);
-    // 预览元素添加到 container 中
-    this.activeContainer.addPreviewToContainer(previewElement);
-
-    // 一次性：给参与排序的元素加上动画类
-    this.sourceContainer.onSession();
+    this.sourceContainer.acceptDrag({
+      initialIndex: this.initialIndex,
+      draggedItem: this.draggedItem,
+    });
 
     // 记录初始指针位置，并启动贯穿整次拖拽的渲染循环
     this.pointer.x = event.clientX;
@@ -62,30 +53,44 @@ export class DragSession {
       this.pointer.y - offsetY,
     );
 
-    // 2. 自动滚动：容器只负责算速度和滚动，timing 由这里掌控
-    const intent = this.activeContainer.getScrollIntent(this.ghost.rect);
-    if (intent.direction) {
-      this.activeContainer.scrollBy(intent.direction * intent.speed);
+    const prev = this.activeContainer;
+    const next = this.resolveActiveContainer();
+
+    if (next !== prev) {
+      if (prev) prev.releaseDrag();
+      if (next) {
+        const opts = {
+          initialIndex: null,
+          draggedItem: this.draggedItem,
+        };
+        // 回到源容器时要带上 initialIndex
+        if (next === this.sourceContainer) {
+          opts.initialIndex = this.initialIndex;
+        }
+        next.acceptDrag(opts);
+      }
+      this.activeContainer = next;
     }
 
-    // 3. 重新评估插入位置（滚动后相对位置变化，这里会持续更新排序）
-    this.evaluatePosition();
+    if (next) {
+      const intent = next.getScrollIntent(this.ghost.rect);
+      if (intent.direction) next.scrollBy(intent.direction * intent.speed);
+      this.insertIndex = next.updateDrag(this.ghost.rect);
+    }
 
-    // 4. 排下一帧
+    // 排下一帧
     this.rafId = requestAnimationFrame(this.frame);
   };
 
-  // 计算插入位并按需重排（insertIndex 没变则跳过）
-  evaluatePosition() {
-    const insertIndex = this.activeContainer.getInsertIndex(this.ghost.rect);
-    if (insertIndex === this.insertIndex) {
-      return;
-    }
-    this.insertIndex = insertIndex;
-    // 重排元素位置
-    this.activeContainer.reflow(this.initialIndex, insertIndex);
-    // 更新预览元素位置
-    this.activeContainer.updatePreviewPosition(this.initialIndex, insertIndex);
+  resolveActiveContainer() {
+    const prev = this.activeContainer;
+
+    const hovered =
+      this.manager.containers.find((c) =>
+        c.containsPoint(this.pointer.x, this.pointer.y),
+      ) ?? prev;
+
+    return hovered;
   }
 
   end(event) {
@@ -95,17 +100,32 @@ export class DragSession {
       this.rafId = null;
     }
 
+    const target = this.activeContainer;
+
     // 幽灵元素飞到目标 slot（preview 所在位置），飞行结束后再做收尾
     // 飞行期间保持当前画面冻结：被拖元素仍隐藏、其它元素仍让位、preview 仍在
-    this.activeContainer.animateGhostToTarget(this.ghost, () => {
-      this.activeContainer.reorderDOM(this.initialIndex, this.insertIndex);
-      this.sourceContainer.endSession();
+    target.animateGhostToTarget(this.ghost, () => {
+      if (
+        this.initialIndex !== this.insertIndex ||
+        this.sourceContainer !== target
+      ) {
+        // 只有当拖动发生了实际位置变化时才执行 takeNode/dropNode
+        const node = this.sourceContainer.takeNode();
+        target.dropNode(node);
+      }
+
+      // 两个容器各自收尾（同容器只收一次）
+      this.sourceContainer.endDrag();
+      if (target !== this.sourceContainer) {
+        target.endDrag();
+      }
 
       this.ghost.element.remove();
       this.ghost = null;
     });
   }
 
+  // ==================== ghost 相关 ====================
   createGhostElement(element) {
     const ghost = element.cloneNode(true);
     // 获取被点击元素的尺寸和位置
