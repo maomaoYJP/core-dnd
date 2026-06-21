@@ -479,3 +479,7 @@ mouseUp后，渲染dom之后，利用FLIP动画，先将元素移动到幽灵元
 核心思路：container提供更加抽象的接口，session只需要调用即可，session专注于整个流程编排
 
 ### 当前对于preview部分实现有问题，很多特判
+
+统一preview逻辑
+preview是使用absolute定位，现在对于不同容器需要进行特定判断，但实际上是不需要的
+对于不同容器都可以使用同一个逻辑：在不同容器给出需要插入的index，根据insertIndex，可以知道空位的位置，然后就可以知道插入的top位置。然后将preview元素的top设置为这个位置即可。

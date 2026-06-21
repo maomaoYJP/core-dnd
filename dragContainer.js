@@ -327,15 +327,11 @@ export class DragContainer {
     const previewWrapper = document.createElement("div");
     previewWrapper.classList.add(CSS.dragDropPreviewConstant);
     previewWrapper.classList.add(CSS.animated);
-    // 设置预览元素的位置和尺寸，rect是相对于viewport的，所以需要减去container的偏移
+
     const rect = element.getBoundingClientRect();
-    const containerRect = this.container.rawRect;
-    // 还有scrollTop的偏移
-    const scrollTop = this.container.element.scrollTop;
-    previewWrapper.style.left = `${rect.left - containerRect.left}px`;
-    previewWrapper.style.top = `${rect.top - containerRect.top + scrollTop}px`;
-    previewWrapper.style.height = `${rect.height}px`;
+
     previewWrapper.style.width = `${rect.width}px`;
+    previewWrapper.style.height = `${rect.height}px`;
 
     const previewInner = document.createElement("div");
     previewInner.classList.add(CSS.dragDropPreviewFlexContainer);
@@ -347,14 +343,13 @@ export class DragContainer {
     previewInner.appendChild(previewContent);
     previewWrapper.appendChild(previewInner);
 
-    // 预览元素的rawRect和rect属性
-    const readRect = this.readRect(rect);
-    readRect.top = readRect.top - containerRect.top + scrollTop;
-    readRect.bottom = readRect.top + readRect.height;
     this.previewItem = {
       element: previewWrapper,
       rawRect: rect,
-      rect: readRect,
+      rect: {
+        left: rect.left,
+        top: rect.top,
+      },
     };
 
     return previewWrapper;
@@ -374,51 +369,19 @@ export class DragContainer {
   updatePreviewPosition(initialIndex, insertIndex) {
     if (!this.previewItem.element) return;
     const previewEl = this.previewItem.element;
-    const rawTop = this.previewItem.rect.top;
 
+    // 拖回原位 / 移出容器：回到被拖元素的原始槽位
     if (insertIndex === -1 || insertIndex === initialIndex) {
-      previewEl.style.top = `${rawTop}px`;
+      const top =
+        this.previewItem.rect.top -
+        this.container.rawRect.top +
+        this.initialScrollTop;
+      previewEl.style.top = `${top}px`;
       return;
     }
 
-    const items = this.draggableItems;
-    const containerTop = this.container.rawRect.top;
-
-    let newTop;
-    const scrollTop = this.container.element.scrollTop;
-    if (insertIndex >= items.length) {
-      // 需要区分是源容器还是目标容器：源容器是向下拖出，目标容器是向下拖入
-      if (this.initialIndex !== null) {
-        const last = items[items.length - 1];
-        newTop =
-          last.rect.bottom -
-          this.draggedItem.rect.height -
-          containerTop +
-          this.initialScrollTop;
-      } else {
-        const last = items[items.length - 1];
-        const gap = parseFloat(
-          window.getComputedStyle(this.container.element).gap || "0",
-        );
-        newTop = last.rect.bottom - containerTop + this.initialScrollTop + gap;
-      }
-    } else {
-      // 中间：preview 占据 item[insertIndex] 上方"被让出的 slot"
-      const step = this.getStep();
-      const target = items[insertIndex];
-      const targetVisualTop =
-        target.rect.top -
-        containerTop +
-        this.initialScrollTop +
-        this.getTranslateY(target);
-      newTop = targetVisualTop - step;
-    }
-
-    previewEl.style.top = `${newTop}px`;
-
-    if (this.initialIndex === null) {
-      previewEl.style.left = `${items[0].rect.left - this.container.rect.left}px`;
-    }
+    // 其余情况（中间 / 尾部、源 / 目标）全部走单一几何源
+    previewEl.style.top = `${this.getSlotTop(insertIndex)}px`;
   }
 
   // ==================== 工具相关 ====================
@@ -450,5 +413,38 @@ export class DragContainer {
     // translateY 值通常是小数，必须匹配带小数点的形式
     const match = transform.match(/translateY\((-?[\d.]+)px\)/);
     return match ? parseFloat(match[1]) : 0;
+  }
+
+  // 元素当前视觉局部 top（含让位 transform）
+  visualTop(item) {
+    //元素在容器内的原始局部 top（坐标系冻结在 acceptDrag 时刻）
+    const localTop =
+      item.rect.top - this.container.rawRect.top + this.initialScrollTop;
+    return localTop + this.getTranslateY(item);
+  }
+
+  // 单一几何源：给定插入位，返回该槽位的局部 top
+  // 读 visualTop（让位之后的位置），源/目标容器的差异由 transform 自动抵消
+  getSlotTop(insertIndex) {
+    const items = this.draggableItems;
+    if (items.length === 0) return 0;
+
+    const gap = parseFloat(
+      window.getComputedStyle(this.container.element).gap || "0",
+    );
+
+    if (insertIndex >= items.length) {
+      // 尾部追加：参照最后一个"非被拖元素"
+      // 源容器里被拖元素仍占着一个槽（translate=0），不能当作末尾参照
+      let lastIdx = items.length - 1;
+      if (this.initialIndex !== null && lastIdx === this.initialIndex) {
+        lastIdx -= 1;
+      }
+
+      const last = items[lastIdx];
+      return this.visualTop(last) + last.rect.height + gap;
+    }
+    // 中间插入：item[insertIndex] 上方让出的洞
+    return this.visualTop(items[insertIndex]) - this.getStep();
   }
 }

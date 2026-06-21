@@ -55,6 +55,11 @@ export class DragSession {
 
     const prev = this.activeContainer;
     const next = this.resolveActiveContainer();
+    if (!next) {
+      // 排下一帧
+      this.rafId = requestAnimationFrame(this.frame);
+      return;
+    }
 
     if (next !== prev) {
       if (prev) prev.releaseDrag();
@@ -88,7 +93,7 @@ export class DragSession {
     const hovered =
       this.manager.containers.find((c) =>
         c.containsPoint(this.pointer.x, this.pointer.y),
-      ) ?? prev;
+      ) ?? null;
 
     return hovered;
   }
