@@ -16,6 +16,7 @@ const css = {
   [CSS.dragDraggableWrapper]: {
     "box-sizing": "border-box",
     "user-select": "none",
+    display: "grid",
   },
   [CSS.animated]: {
     transition: "all 0.25s ease-in-out" /* 添加过渡效果 */,
@@ -31,8 +32,15 @@ const css = {
   [CSS.dragDropPreviewConstant]: {
     position: "absolute",
     "pointer-events": "none",
-    width: "100%",
     overflow: "hidden",
+  },
+
+  // 横向容器的 preview 不需要轴方向的百分比，由 inline style 控制
+  ".drag-container.vertical .drag-drop-preview-constant": {
+    width: "100%",
+  },
+  ".drag-container.horizontal .drag-drop-preview-constant": {
+    height: "100%",
   },
   [CSS.dragDropPreviewFlexContainer]: {
     width: "100%",
@@ -59,7 +67,9 @@ function mountStylesToHead() {
     const styleString = Object.entries(styles)
       .map(([key, value]) => `${key}: ${value};`)
       .join(" ");
-    cssString += `.${className} { ${styleString} }\n`;
+    // 简单类名补 `.` 前缀；含空格 / `.` / `[` 等的复杂选择器原样输出
+    const selector = /[\s.\[]/.test(className) ? className : `.${className}`;
+    cssString += `${selector} { ${styleString} }\n`;
   }
   styleElement.textContent = cssString;
   document.head.appendChild(styleElement);

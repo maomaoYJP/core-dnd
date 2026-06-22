@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    .container {
+      width: 600px;
+      height: 300px;
+      margin: 20px auto;
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid rgb(185, 183, 183);
+      border-radius: 6px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .container .drag-draggable-wrapper {
+      flex-shrink: 0;
+    }
+
+    .item1 {
+      height: 50px;
+      background-color: lightblue;
+      border-radius: 6px;
+    }
+    .item2 {
+      height: 100px;
+      background-color: lightblue;
+      border-radius: 6px;
+    }
+    .item3 {
+      height: 70px;
+      background-color: lightblue;
+      border-radius: 6px;
+    }
+
+    .hitem1 {
+      width: 50px;
+      background-color: lightblue;
+      border-radius: 6px;
+    }
+    .hitem2 {
+      width: 200px;
+      background-color: lightblue;
+      border-radius: 6px;
+    }
+    .hitem3 {
+      width: 70px;
+      background-color: lightblue;
+      border-radius: 6px;
+    }
+  </style>
+  <body>
+    <div style="display: flex; flex-direction: column; gap: 20px">
+      <div id="container" class="container" style="flex-shrink: 0">
+        <div class="item1">1</div>
+        <div class="item2">2</div>
+        <div class="item3">3</div>
+        <div class="item3">4</div>
+        <div class="item3">5</div>
+      </div>
+
+      <div id="container2" class="container" style="flex-shrink: 0">
+        <div class="item1">1</div>
+        <div class="item2">2</div>
+        <div class="item3">3</div>
+        <div class="item3">4</div>
+        <div class="item3">5</div>
+      </div>
+
+      <div
+        id="hcontainer"
+        class="container horizontal"
+        style="width: 400px; overflow: auto"
+      >
+        <div class="hitem1">A</div>
+        <div class="hitem2">B</div>
+        <div class="hitem3">C</div>
+        <div class="hitem3">D</div>
+        <div class="hitem3">E</div>
+      </div>
+    </div>
+  </body>
+  <script type="module">
+    import { DragContainer } from "./index.js";
+
+    const containerEle = document.querySelector("#container");
+    const containerEle2 = document.querySelector("#container2");
+    const hcontainerEle = document.querySelector("#hcontainer");
+
+    const container = new DragContainer(containerEle);
+    const container2 = new DragContainer(containerEle2);
+    const hcontainer = new DragContainer(hcontainerEle, {
+      axis: "horizontal",
+    });
+  </script>
+</html>

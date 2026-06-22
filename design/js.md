@@ -483,3 +483,8 @@ mouseUp后，渲染dom之后，利用FLIP动画，先将元素移动到幽灵元
 统一preview逻辑
 preview是使用absolute定位，现在对于不同容器需要进行特定判断，但实际上是不需要的
 对于不同容器都可以使用同一个逻辑：在不同容器给出需要插入的index，根据insertIndex，可以知道空位的位置，然后就可以知道插入的top位置。然后将preview元素的top设置为这个位置即可。
+
+## 实现横向排列
+
+把所有跟 X/Y 方向有关的字段访问、字符串拼装、几何算法 收敛到axis.js。
+dragContainer 只持有一个 adapter 实例，业务方法通过 adapter 间接访问主轴，从而不再关心自己跑的是横向还是竖向。

@@ -140,6 +140,8 @@ export class DragSession {
     // 添加样式类
     ghostWrapper.classList.add(CSS.dragGhost);
     ghost.style.visibility = "visible";
+    ghost.style.width = "100%";
+    ghost.style.height = "100%";
     ghostWrapper.style.width = `${rect.width}px`;
     ghostWrapper.style.height = `${rect.height}px`;
     ghostWrapper.style.left = `${rect.left}px`;
