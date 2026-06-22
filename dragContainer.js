@@ -82,7 +82,10 @@ export class DragContainer {
       draggableItem.style.visibility = "hidden";
     }
 
-    this.draggableItems.forEach((item) => {
+    this.draggableItems.forEach((item, index) => {
+      // 被拖动的元素会立即隐藏并由 ghost 代替，不需要过渡（否则 visibility
+      // 会跟随 transition 延迟到动画结束才隐藏）
+      if (index === this.initialIndex) return;
       if (!item.element.classList.contains(CSS.animated)) {
         item.element.classList.add(CSS.animated);
       }
@@ -272,27 +275,6 @@ export class DragContainer {
     this.container.element.scrollTop += delta;
   }
 
-  // ===== 结束时（Session 调） =====
-  reorderDOM(initialIndex, insertIndex) {
-    if (
-      initialIndex === -1 ||
-      insertIndex === -1 ||
-      initialIndex === insertIndex
-    ) {
-      return;
-    }
-
-    const container = this.container.element;
-    const initialItem = this.draggableItems[initialIndex];
-
-    if (insertIndex >= this.draggableItems.length) {
-      container.appendChild(initialItem.element);
-    } else {
-      const targetItem = this.draggableItems[insertIndex];
-      container.insertBefore(initialItem.element, targetItem.element);
-    }
-  }
-
   // 让幽灵元素本身飞到目标 slot，再交还给 session 收尾（reorderDOM/清理）
   // 目标 slot 就是 preview 当前所在位置；用 fixed 定位的 left/top 直接过渡
   // 飞行结束（或没有 preview 可飞）后调用 onComplete
@@ -439,6 +421,12 @@ export class DragContainer {
       let lastIdx = items.length - 1;
       if (this.initialIndex !== null && lastIdx === this.initialIndex) {
         lastIdx -= 1;
+      }
+
+      // 容器里只有被拖元素本身，没有其他可参照的元素：
+      // 尾部槽位就是被拖元素自己的原始槽位
+      if (lastIdx < 0) {
+        return this.visualTop(items[this.initialIndex]);
       }
 
       const last = items[lastIdx];
