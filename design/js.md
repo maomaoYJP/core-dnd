@@ -520,7 +520,26 @@ eventData = {
 
 onMove 实现
 
+onMove 判定 = 位置级准入：在已准入的容器内，某个具体插入位收不收
+
 1. 在 updateDrag 中，计算出 rawIndex，如果没有变化，直接返回
 2. 如果变化了，触发 onMove 事件，传入相关数据
 3. onMove 的返回值用于决定是否接受这个插入位，如果拒绝，effective 置 -1，表示回原位；否则 effective 就是 rawIndex
 4. 只有当 effective 变化了，才更新 this.insertIndex，并且调用 reflow 和 updatePreviewPosition
+
+## group约束
+
+group 判定 = 容器级准入：这个容器整体收不收来自那个容器的元素。
+
+配置结构
+
+```javascript
+//pull和put允许值： true | false | function({from,to}) | string[]
+{
+  group: {
+    name: 'groupName',
+    pull: true, // 是否允许从其他容器拖入
+    put: true,  // 是否允许拖出到其他容器
+  }
+}
+```

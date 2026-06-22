@@ -97,12 +97,21 @@ export class DragSession {
   };
 
   resolveActiveContainer() {
-    const prev = this.activeContainer;
-
+    const source = this.sourceContainer;
     const hovered =
       this.manager.containers.find((c) =>
         c.containsPoint(this.pointer.x, this.pointer.y),
       ) ?? null;
+
+    // 同容器：永远放行
+    if (hovered === source) return hovered;
+
+    // 指针不在任何注册容器内：返回 null
+    if (!hovered) return null;
+
+    // 跨容器：过两道门——源让不让出 + 目标让不让进
+    if (!source.canPullTo(hovered)) return null;
+    if (!hovered.canPutFrom(source)) return null;
 
     return hovered;
   }

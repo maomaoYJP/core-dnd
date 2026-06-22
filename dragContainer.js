@@ -11,6 +11,7 @@ export class DragContainer {
 
     this.options = options;
     this.ax = new Axis(options.axis || "vertical"); // 默认竖向
+    this.group = this.normalizeGroup(options.group);
 
     this.initialIndex = null; // 拖动开始时被点击的元素的 index，由 session 传入
     this.initialScrollMain = 0; // 拖动开始时 container 的主轴 scroll
@@ -73,6 +74,39 @@ export class DragContainer {
         rect: this.readRect(rawRect),
       };
     });
+  }
+  // ==================== group 相关 ====================
+  normalizeGroup(group) {
+    // 默认参数
+    // pull和put允许值： true | false | function({from,to}) | string[]
+    const defaultGroup = {
+      name: "default",
+      pull: true,
+      put: true,
+    };
+    return { ...defaultGroup, ...group };
+  }
+
+  // 我这个元素能不能被拉到 target 容器
+  canPullTo(target) {
+    // 同容器重排永远允许
+    if (target === this) return true;
+    const p = this.group.pull;
+    if (p === false) return false;
+    if (Array.isArray(p)) return p.includes(target.group.name);
+    if (typeof p === "function") return !!p({ from: this, to: target });
+    return true;
+  }
+
+  // 我收不收来自 source 容器的元素
+  canPutFrom(source) {
+    // 同容器，放行
+    if (source === this) return true;
+    const p = this.group.put;
+    if (p === false) return false;
+    if (Array.isArray(p)) return p.includes(source.group.name);
+    if (typeof p === "function") return !!p({ from: source, to: this });
+    return true;
   }
 
   // ==================== 事件 相关 ====================

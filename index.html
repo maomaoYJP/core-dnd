@@ -105,11 +105,16 @@
     const hcontainerEle = document.querySelector("#hcontainer");
 
     const container = new DragContainer(containerEle, {
+      group: {
+        name: "group1",
+        pull: true,
+        put: true,
+      },
       onStart: (e) => {
         console.log("start", e);
       },
       onMove: (e) => {
-        console.log("move", e);
+        // console.log("move", e);
       },
       onEnd: (e) => {
         console.log("end", e);
@@ -121,7 +126,28 @@
         console.log("remove", e);
       },
     });
-    const container2 = new DragContainer(containerEle2);
+    const container2 = new DragContainer(containerEle2, {
+      group: {
+        name: "group2",
+        pull: true,
+        put: false,
+      },
+      onStart: (e) => {
+        console.log("start", e);
+      },
+      onMove: (e) => {
+        // console.log("move", e);
+      },
+      onEnd: (e) => {
+        console.log("end", e);
+      },
+      onAdd: (e) => {
+        console.log("add", e);
+      },
+      onRemove: (e) => {
+        console.log("remove", e);
+      },
+    });
     const hcontainer = new DragContainer(hcontainerEle, {
       axis: "horizontal",
     });
