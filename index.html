@@ -77,10 +77,20 @@
       <div
         id="hcontainer"
         class="container horizontal"
-        style="width: 400px; overflow: auto"
+        style="width: 800px; overflow: auto"
       >
         <div class="hitem1">A</div>
         <div class="hitem2">B</div>
+        <div class="hitem3">C</div>
+        <div class="hitem3">D</div>
+        <div class="hitem3">C</div>
+        <div class="hitem3">D</div>
+        <div class="hitem3">C</div>
+        <div class="hitem3">D</div>
+        <div class="hitem3">C</div>
+        <div class="hitem3">D</div>
+        <div class="hitem3">C</div>
+        <div class="hitem3">D</div>
         <div class="hitem3">C</div>
         <div class="hitem3">D</div>
         <div class="hitem3">E</div>
@@ -94,7 +104,23 @@
     const containerEle2 = document.querySelector("#container2");
     const hcontainerEle = document.querySelector("#hcontainer");
 
-    const container = new DragContainer(containerEle);
+    const container = new DragContainer(containerEle, {
+      onStart: (e) => {
+        console.log("start", e);
+      },
+      onMove: (e) => {
+        console.log("move", e);
+      },
+      onEnd: (e) => {
+        console.log("end", e);
+      },
+      onAdd: (e) => {
+        console.log("add", e);
+      },
+      onRemove: (e) => {
+        console.log("remove", e);
+      },
+    });
     const container2 = new DragContainer(containerEle2);
     const hcontainer = new DragContainer(hcontainerEle, {
       axis: "horizontal",

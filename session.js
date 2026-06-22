@@ -29,12 +29,20 @@ export class DragSession {
     this.sourceContainer.acceptDrag({
       initialIndex: this.initialIndex,
       draggedItem: this.draggedItem,
+      sourceContainer: this.sourceContainer,
     });
 
     // 记录初始指针位置，并启动贯穿整次拖拽的渲染循环
     this.pointer.x = event.clientX;
     this.pointer.y = event.clientY;
     this.rafId = requestAnimationFrame(this.frame);
+
+    // 通知源容器：拖拽已真正开始
+    this.sourceContainer.triggerEvent("onStart", {
+      item: this.draggedItem.element,
+      from: this.sourceContainer.container.element,
+      oldIndex: this.initialIndex,
+    });
   }
 
   // mousemove 只更新指针，不做任何计算
@@ -67,6 +75,7 @@ export class DragSession {
         const opts = {
           initialIndex: null,
           draggedItem: this.draggedItem,
+          sourceContainer: this.sourceContainer,
         };
         // 回到源容器时要带上 initialIndex
         if (next === this.sourceContainer) {
@@ -110,19 +119,40 @@ export class DragSession {
     // 幽灵元素飞到目标 slot（preview 所在位置），飞行结束后再做收尾
     // 飞行期间保持当前画面冻结：被拖元素仍隐藏、其它元素仍让位、preview 仍在
     target.animateGhostToTarget(this.ghost, () => {
-      if (
-        this.initialIndex !== this.insertIndex ||
-        this.sourceContainer !== target
-      ) {
-        // 只有当拖动发生了实际位置变化时才执行 takeNode/dropNode
-        const node = this.sourceContainer.takeNode();
-        target.dropNode(node);
+      // 在 endDrag 清理状态之前，先把要传给回调的值抓出来
+      const from = this.sourceContainer;
+      const to = target;
+      const oldIndex = this.initialIndex;
+      const newIndex = this.insertIndex;
+      const item = this.draggedItem.element;
+      const evt = {
+        item,
+        from: from.container.element,
+        to: to.container.element,
+        oldIndex,
+        newIndex,
+      };
+
+      // 只有当拖动发生了实际位置变化时才执行 takeNode/dropNode
+      // newIndex === -1 表示 onMove 拒绝过，不算移动（避免 takeNode/dropNode 误操作）
+      if (newIndex !== -1 && (oldIndex !== newIndex || from !== to)) {
+        const node = from.takeNode();
+        to.dropNode(node);
+
+        // 跨容器移动：源失去、目标获得
+        if (from !== to) {
+          from.triggerEvent("onRemove", evt);
+          to.triggerEvent("onAdd", evt);
+        }
       }
 
+      // DOM 已是最终状态，触发 onEnd（始终在源容器触发）
+      from.triggerEvent("onEnd", evt);
+
       // 两个容器各自收尾（同容器只收一次）
-      this.sourceContainer.endDrag();
-      if (target !== this.sourceContainer) {
-        target.endDrag();
+      from.endDrag();
+      if (to !== from) {
+        to.endDrag();
       }
 
       this.ghost.element.remove();

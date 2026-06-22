@@ -9,12 +9,15 @@ export class DragContainer {
     // [{element: HTMLElement,rawRect: DOMRect,rect: DOMRect}, ...]
     this.draggableItems = [];
 
+    this.options = options;
     this.ax = new Axis(options.axis || "vertical"); // 默认竖向
 
     this.initialIndex = null; // 拖动开始时被点击的元素的 index，由 session 传入
     this.initialScrollMain = 0; // 拖动开始时 container 的主轴 scroll
     this.insertIndex = null; // 拖动过程中，幽灵元素落在哪个插入位之前
     this.draggedItem = null; // 被拖动的元素项，由 session 传入
+    this.sessionSource = null; // 拖动来源容器，由 session 传入
+    this.lastRawIndex = -2; // 上一个插入位置index，用于 onMove 去抖
 
     this.previewItem = {};
 
@@ -72,11 +75,17 @@ export class DragContainer {
     });
   }
 
+  // ==================== 事件 相关 ====================
+  triggerEvent(name, eventData) {
+    return this.options[name]?.(eventData);
+  }
+
   // ==================== session 相关 ====================
-  acceptDrag({ initialIndex, draggedItem }) {
+  acceptDrag({ initialIndex, draggedItem, sourceContainer }) {
     // 初始化相关状态
     this.initialIndex = initialIndex;
     this.insertIndex = null;
+    this.sessionSource = sourceContainer ?? this;
     this.initialScrollMain = this.ax.getScroll(this.container.element);
     this.draggedItem = draggedItem;
     this.refreshRects();
@@ -101,18 +110,41 @@ export class DragContainer {
   }
 
   updateDrag(ghostRect) {
-    const insertIndex = this.getInsertIndex(ghostRect);
-    if (insertIndex === this.insertIndex) {
-      return insertIndex;
+    const rawIndex = this.getInsertIndex(ghostRect);
+
+    // 插入的位置不变，直接返回
+    if (rawIndex === this.lastRawIndex) return this.insertIndex;
+    this.lastRawIndex = rawIndex;
+
+    // 触发 onMove，返回值用于决定是否插入（-1 表示拒绝，回原位）
+    const related =
+      rawIndex < this.draggableItems.length
+        ? this.draggableItems[rawIndex].element
+        : null;
+    const accepted = this.triggerEvent("onMove", {
+      item: this.draggedItem.element,
+      from: this.sessionSource.container.element,
+      to: this.container.element,
+      oldIndex: this.initialIndex,
+      newIndex: rawIndex,
+      related,
+      willInsertAfter: rawIndex > (this.initialIndex ?? -1),
+    });
+
+    // 拒绝插入时，effective 置 -1，表示回原位；否则 effective 就是 rawIndex
+    let effective = rawIndex;
+    if (accepted === false) {
+      effective = -1;
     }
-    this.insertIndex = insertIndex;
+
+    this.insertIndex = effective;
 
     // 重排元素位置
-    this.reflow(this.initialIndex, insertIndex);
+    this.reflow(this.initialIndex, effective);
     // 更新预览元素位置
-    this.updatePreviewPosition(this.initialIndex, insertIndex);
+    this.updatePreviewPosition(this.initialIndex, effective);
 
-    return insertIndex;
+    return effective;
   }
 
   releaseDrag() {
