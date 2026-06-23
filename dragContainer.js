@@ -121,6 +121,7 @@ export class DragContainer {
     // 初始化相关状态
     this.initialIndex = initialIndex;
     this.insertIndex = null;
+    this.lastRawIndex = -2;
     this.sessionSource = sourceContainer ?? this;
     this.initialScrollMain = this.ax.getScroll(this.container.element);
     this.draggedItem = draggedItem;
@@ -292,36 +293,71 @@ export class DragContainer {
     this.ax.addScroll(this.container.element, delta);
   }
 
-  // 让幽灵元素本身飞到目标 slot，再交还给 session 收尾（reorderDOM/清理）
-  // 目标 slot 就是 preview 当前所在位置；用 fixed 定位的 left/top 直接过渡
-  // 飞行结束（或没有 preview 可飞）后调用 onComplete
+  // 让幽灵元素本身飞到目标 slot，再交还给 session 收尾清理
   animateGhostToTarget(ghost, onComplete) {
     if (!ghost || !ghost.element) {
       onComplete();
       return;
     }
 
-    const ghostEl = ghost.element;
-    const target = this.previewItem.element;
-
-    // 没有 preview（如拖出容器外），无需飞行，直接收尾
-    if (!target) {
+    // 没有 preview，无需飞行，直接收尾
+    if (!this.previewItem.element) {
       onComplete();
       return;
     }
 
-    // preview 与幽灵元素同宽同位，其视口坐标即为目标落点
-    const targetRect = target.getBoundingClientRect();
+    const ghostEl = ghost.element;
+
+    // 1) 算主轴局部坐标（容器局部坐标系）
+    //    回原位/被拒：被拖元素自己的原始槽位
+    //    正常插入：slotMainStart 算出来的插入槽位
+    const isBackToOrigin =
+      this.insertIndex === null ||
+      this.insertIndex === -1 ||
+      this.insertIndex === this.initialIndex;
+
+    let localMain;
+    if (isBackToOrigin) {
+      localMain = this.ax.visualMainStart({
+        itemRect: this.draggedItem.rect,
+        containerRawRect: this.container.rawRect,
+        transformStr: "",
+        initialScroll: this.initialScrollMain,
+      });
+    } else {
+      const gap = parseFloat(
+        window.getComputedStyle(this.container.element).gap || "0",
+      );
+      localMain = this.ax.slotMainStart({
+        items: this.draggableItems,
+        containerRawRect: this.container.rawRect,
+        initialScroll: this.initialScrollMain,
+        initialIndex: this.initialIndex,
+        insertIndex: this.insertIndex,
+        gap,
+        draggedRect: this.draggedItem.rect,
+      });
+    }
+
+    // 2) 局部坐标 → 视口坐标
+    //    viewportMain = containerRawRect.mainStart + localMain - currentScroll
+    //    副轴坐标 preview 全程不参与动画（只在主轴上 transition），所以读它的
+    //    实时 boundingClientRect 是安全的，不会像主轴一样踩到中间态
+    const currentScroll = this.ax.getScroll(this.container.element);
+    const viewportMain =
+      this.ax.startOf(this.container.rawRect) + localMain - currentScroll;
+
+    // 副轴坐标直接用 preview 的当前坐标，是绝对正确的
+    const viewportCross = this.ax.crossStartOf(this.previewItem.rect);
 
     const finish = () => {
       ghostEl.removeEventListener("transitionend", finish);
       onComplete();
     };
 
-    // 添加过渡类，改变 left/top 触发飞行动画
     ghostEl.classList.add(CSS.animated);
-    ghostEl.style.left = `${targetRect.left}px`;
-    ghostEl.style.top = `${targetRect.top}px`;
+    ghostEl.style[this.ax.keys.startStyle] = `${viewportMain}px`;
+    ghostEl.style[this.ax.keys.crossStyle] = `${viewportCross}px`;
 
     ghostEl.addEventListener("transitionend", finish);
   }

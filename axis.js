@@ -50,6 +50,10 @@ export class Axis {
     return rect[this.keys.end];
   }
 
+  crossStartOf(rect) {
+    return rect[this.keys.crossStyle];
+  }
+
   getScroll(el) {
     return el[this.keys.scrollProp];
   }
