@@ -29,8 +29,6 @@ export class Hooks {
           this.map[key] = [];
         }
         this.map[key].push(plugin[key]);
-      } else {
-        console.warn(`Plugin ${plugin.name} has an unrecognized hook: ${key}`);
       }
     }
   }

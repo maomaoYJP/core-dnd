@@ -97,10 +97,11 @@
   </body>
   <script type="module">
     import { DragContainer } from "./index.js";
+    import { ghostStylePlugin } from "./plugins/ghostStylePlugin.js";
 
     // 容器 1：空插件，核心最小模式
     new DragContainer(document.querySelector("#container"), {
-      plugins: [],
+      plugins: [ghostStylePlugin()],
       onStart: (e) => console.log("start", e),
       onMove: (e) => {
         // console.log("move", e);

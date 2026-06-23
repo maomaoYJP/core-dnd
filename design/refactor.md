@@ -37,3 +37,12 @@ onMove 不传 newIndex 是个关键设计——因为 newIndex 在"还没提交"
 现在统一修改，insertIndex意思是插入后的坐标，坐标体系是全部items。insertIndex = 1表示插入后在items[1]的位置。即使拖拽过程中隐藏了原始元素，insertIndex也不会改变。
 
 无有效目标位置（onMove 拒绝 / 尚未计算 / 容器外）时 `insertIndex = null`，调用方据此判断是否提交；
+
+## 实现一个ghost样式增强插件
+
+问题：
+现在ctx中并没有ghost引用，插件无法获取ghost元素进行样式增强。
+
+修改：
+在ctx中传入ghost引用，插件可以在onStart中获取ghost元素并进行样式增强。
+因为ghost元素session创建，一次会话唯一的，就算有多个container，ghost也是一个引用，将其传入ctx中是安全的。

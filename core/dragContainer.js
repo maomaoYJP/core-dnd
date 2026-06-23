@@ -36,6 +36,7 @@ export class DragContainer {
     this.insertIndex = null;
     this.draggedItem = null;
     this.sessionSource = null;
+    this.ghost = null;
 
     this._initStructure();
     this.refreshRects();
@@ -111,11 +112,12 @@ export class DragContainer {
    * 拖动进入本容器，或本容器是源容器，由 session 在 start 时调用
    * 初始化本容器的会话状态。
    */
-  acceptDrag({ initialIndex, draggedItem, sourceContainer }) {
+  acceptDrag({ initialIndex, draggedItem, sourceContainer, ghost }) {
     this.initialIndex = initialIndex;
     this.insertIndex = null;
     this.draggedItem = draggedItem;
     this.sessionSource = sourceContainer ?? this;
+    this.ghost = ghost;
     this.refreshRects();
 
     // 源容器：隐藏被拖元素
@@ -183,6 +185,7 @@ export class DragContainer {
     this.insertIndex = null;
     this.draggedItem = null;
     this.sessionSource = null;
+    this.ghost = null;
     this.refreshRects();
   }
 
@@ -214,6 +217,7 @@ export class DragContainer {
       initialIndex: this.initialIndex,
       insertIndex: this.insertIndex,
       sourceContainer: this.sessionSource,
+      ghost: this.ghost,
       options: this.options,
     };
   }
