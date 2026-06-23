@@ -33,7 +33,6 @@ export class DragSession {
 
   // ==================== 启动 ====================
   start() {
-    console.log(111);
     // 创建并添加 ghost，全局唯一的
     const itemEl = this.sourceContainer.items[this.initialIndex].element;
     this.ghost = new Ghost(itemEl, this.pointerEvent);
