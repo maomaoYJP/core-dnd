@@ -21,6 +21,12 @@ export class DragSession {
   }
 
   start(event) {
+    // 校验 mousedown 的目标是否落在合法的把手区域内
+    const itemEl =
+      this.sourceContainer.draggableItems[this.initialIndex].element;
+
+    if (!this.sourceContainer.isDraggableTarget(event.target, itemEl)) return;
+
     const draggedElement = this.draggedItem.element;
     // 创建幽灵元素
     this.createGhostElement(draggedElement);
@@ -164,8 +170,8 @@ export class DragSession {
         to.endDrag();
       }
 
-      this.ghost.element.remove();
-      this.ghost = null;
+      // 清理幽灵元素
+      this.clearGhost();
     });
   }
 
@@ -213,5 +219,12 @@ export class DragSession {
       this.ghost.rect.right = x + this.ghost.rect.width;
       this.ghost.rect.bottom = y + this.ghost.rect.height;
     }
+  }
+
+  clearGhost() {
+    if (this.ghost && this.ghost.element) {
+      this.ghost.element.remove();
+    }
+    this.ghost = null;
   }
 }

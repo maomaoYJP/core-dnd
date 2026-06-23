@@ -55,6 +55,17 @@
       background-color: lightblue;
       border-radius: 6px;
     }
+
+    .drag-handle {
+      display: inline-block;
+      padding: 0 6px;
+      cursor: grab;
+      user-select: none;
+      color: #666;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
   </style>
   <body>
     <div style="display: flex; flex-direction: column; gap: 20px">
@@ -67,11 +78,11 @@
       </div>
 
       <div id="container2" class="container" style="flex-shrink: 0">
-        <div class="item1">1</div>
-        <div class="item2">2</div>
-        <div class="item3">3</div>
-        <div class="item3">4</div>
-        <div class="item3">5</div>
+        <div class="item1"><span class="drag-handle">⠿</span> 1</div>
+        <div class="item2"><span class="drag-handle">⠿</span> 2</div>
+        <div class="item3"><span class="drag-handle">⠿</span> 3</div>
+        <div class="item3"><span class="drag-handle">⠿</span> 4</div>
+        <div class="item3"><span class="drag-handle">⠿</span> 5</div>
       </div>
 
       <div
@@ -127,6 +138,7 @@
       },
     });
     const container2 = new DragContainer(containerEle2, {
+      handle: ".drag-handle",
       group: {
         name: "group2",
         pull: true,

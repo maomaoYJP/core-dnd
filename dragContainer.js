@@ -12,6 +12,8 @@ export class DragContainer {
     this.options = options;
     this.ax = new Axis(options.axis || "vertical"); // 默认竖向
     this.group = this.normalizeGroup(options.group);
+    this.handle = options.handle || null; // 把手选择器；不传则整个 item 都是把手
+    this.filter = options.filter || null; // 黑名单选择器；命中则禁止拖动
 
     this.initialIndex = null; // 拖动开始时被点击的元素的 index，由 session 传入
     this.initialScrollMain = 0; // 拖动开始时 container 的主轴 scroll
@@ -294,6 +296,11 @@ export class DragContainer {
   // 目标 slot 就是 preview 当前所在位置；用 fixed 定位的 left/top 直接过渡
   // 飞行结束（或没有 preview 可飞）后调用 onComplete
   animateGhostToTarget(ghost, onComplete) {
+    if (!ghost || !ghost.element) {
+      onComplete();
+      return;
+    }
+
     const ghostEl = ghost.element;
     const target = this.previewItem.element;
 
@@ -415,5 +422,24 @@ export class DragContainer {
     return this.draggableItems.findIndex((item) =>
       item.element.contains(element),
     );
+  }
+
+  // ==================== 把手相关 ====================
+  // 判断 mousedown 的 event.target 是否落在合法的把手区域内
+  // itemElement 是该 target 所在的 draggable wrapper
+  isDraggableTarget(target, itemElement) {
+    // 原生交互元素豁免，避免输入框/按钮无法正常使用
+    if (/^(?:input|textarea|button|select|option|a)$/i.test(target.tagName)) {
+      return false;
+    }
+    // filter 黑名单优先级最高
+    if (this.filter && target.closest(this.filter)) {
+      return false;
+    }
+    // 没配 handle，整个 item 都是把手（保持原行为）
+    if (!this.handle) return true;
+    // 配了 handle：target 必须在 handle 内，且 handle 必须属于该 item
+    const handleEl = target.closest(this.handle);
+    return !!handleEl && itemElement.contains(handleEl);
   }
 }
