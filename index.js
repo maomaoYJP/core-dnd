@@ -1,3 +1,3 @@
-import { DragContainer } from "./dragContainer.js";
+import { DragContainer } from "./core/dragContainer.js";
 
 export { DragContainer };

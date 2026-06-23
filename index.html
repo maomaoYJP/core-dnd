@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>any-drag — core</title>
   </head>
   <style>
     .container {
@@ -18,6 +18,11 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+
+    .container.horizontal {
+      flex-direction: row;
+      width: 800px;
     }
 
     .container .drag-draggable-wrapper {
@@ -55,20 +60,10 @@
       background-color: lightblue;
       border-radius: 6px;
     }
-
-    .drag-handle {
-      display: inline-block;
-      padding: 0 6px;
-      cursor: grab;
-      user-select: none;
-      color: #666;
-    }
-    .drag-handle:active {
-      cursor: grabbing;
-    }
   </style>
   <body>
     <div style="display: flex; flex-direction: column; gap: 20px">
+      <!-- 同容器排序 -->
       <div id="container" class="container" style="flex-shrink: 0">
         <div class="item1">1</div>
         <div class="item2">2</div>
@@ -77,14 +72,16 @@
         <div class="item3">5</div>
       </div>
 
+      <!-- 跨容器拖拽 -->
       <div id="container2" class="container" style="flex-shrink: 0">
-        <div class="item1"><span class="drag-handle">⠿</span> 1</div>
-        <div class="item2"><span class="drag-handle">⠿</span> 2</div>
-        <div class="item3"><span class="drag-handle">⠿</span> 3</div>
-        <div class="item3"><span class="drag-handle">⠿</span> 4</div>
-        <div class="item3"><span class="drag-handle">⠿</span> 5</div>
+        <div class="item1">A</div>
+        <div class="item2">B</div>
+        <div class="item3">C</div>
+        <div class="item3">D</div>
+        <div class="item3">E</div>
       </div>
 
+      <!-- 横向容器 -->
       <div
         id="hcontainer"
         class="container horizontal"
@@ -94,16 +91,6 @@
         <div class="hitem2">B</div>
         <div class="hitem3">C</div>
         <div class="hitem3">D</div>
-        <div class="hitem3">C</div>
-        <div class="hitem3">D</div>
-        <div class="hitem3">C</div>
-        <div class="hitem3">D</div>
-        <div class="hitem3">C</div>
-        <div class="hitem3">D</div>
-        <div class="hitem3">C</div>
-        <div class="hitem3">D</div>
-        <div class="hitem3">C</div>
-        <div class="hitem3">D</div>
         <div class="hitem3">E</div>
       </div>
     </div>
@@ -111,57 +98,33 @@
   <script type="module">
     import { DragContainer } from "./index.js";
 
-    const containerEle = document.querySelector("#container");
-    const containerEle2 = document.querySelector("#container2");
-    const hcontainerEle = document.querySelector("#hcontainer");
+    // 容器 1：空插件，核心最小模式
+    new DragContainer(document.querySelector("#container"), {
+      plugins: [],
+      onStart: (e) => console.log("start", e),
+      onMove: (e) => {
+        // console.log("move", e);
+      },
+      onEnd: (e) => console.log("end", e),
+      onAdd: (e) => console.log("add", e),
+      onRemove: (e) => console.log("remove", e),
+    });
 
-    const container = new DragContainer(containerEle, {
-      group: {
-        name: "group1",
-        pull: true,
-        put: true,
-      },
-      onStart: (e) => {
-        console.log("start", e);
-      },
-      onMove: (e) => {
-        // console.log("move", e);
-      },
-      onEnd: (e) => {
-        console.log("end", e);
-      },
-      onAdd: (e) => {
-        console.log("add", e);
-      },
-      onRemove: (e) => {
-        console.log("remove", e);
-      },
+    // 容器 2
+    new DragContainer(document.querySelector("#container2"), {
+      plugins: [],
+      onStart: (e) => console.log("start", e),
+      onEnd: (e) => console.log("end", e),
+      onAdd: (e) => console.log("add", e),
+      onRemove: (e) => console.log("remove", e),
     });
-    const container2 = new DragContainer(containerEle2, {
-      handle: ".drag-handle",
-      group: {
-        name: "group2",
-        pull: true,
-        put: false,
-      },
-      onStart: (e) => {
-        console.log("start", e);
-      },
-      onMove: (e) => {
-        // console.log("move", e);
-      },
-      onEnd: (e) => {
-        console.log("end", e);
-      },
-      onAdd: (e) => {
-        console.log("add", e);
-      },
-      onRemove: (e) => {
-        console.log("remove", e);
-      },
-    });
-    const hcontainer = new DragContainer(hcontainerEle, {
+
+    // 容器 3：横向
+    new DragContainer(document.querySelector("#hcontainer"), {
       axis: "horizontal",
+      plugins: [],
+      onStart: (e) => console.log("start", e),
+      onEnd: (e) => console.log("end", e),
     });
   </script>
 </html>

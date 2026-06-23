@@ -1,61 +1,32 @@
 import { CSS } from "./constant.js";
 
+/**
+ * 核心样式：只包含容器布局和 ghost 必需的样式。
+ * 插件需要的样式由插件自己挂载。
+ */
 const css = {
   [CSS.dragContainer]: {
     position: "relative",
     display: "flex",
-    "min-height": "30px" /* 确保容器有足够的高度 */,
-    "min-width": "30px" /* 确保容器有足够的宽度 */,
+    "min-height": "30px",
+    "min-width": "30px",
   },
   [CSS.vertical]: {
-    "flex-direction": "column" /* 垂直排列 */,
+    "flex-direction": "column",
   },
   [CSS.horizontal]: {
-    "flex-direction": "row" /* 水平排列 */,
+    "flex-direction": "row",
   },
   [CSS.dragDraggableWrapper]: {
     "box-sizing": "border-box",
     "user-select": "none",
     display: "grid",
   },
-  [CSS.animated]: {
-    transition: "all 0.25s ease-in-out" /* 添加过渡效果 */,
-  },
   [CSS.dragGhost]: {
     position: "fixed",
-    "z-index": 9999 /* 确保幽灵元素在最上层 */,
-    "pointer-events": "none" /* 使幽灵元素不响应鼠标事件 */,
-    opacity: 1.0 /* 可选：调整幽灵元素的透明度 */,
-  },
-
-  // 预览相关的样式
-  [CSS.dragDropPreviewConstant]: {
-    position: "absolute",
+    "z-index": 9999,
     "pointer-events": "none",
-    overflow: "hidden",
-  },
-
-  // 横向容器的 preview 不需要轴方向的百分比，由 inline style 控制
-  ".drag-container.vertical .drag-drop-preview-constant": {
-    width: "100%",
-  },
-  ".drag-container.horizontal .drag-drop-preview-constant": {
-    height: "100%",
-  },
-  [CSS.dragDropPreviewFlexContainer]: {
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    "align-items": "stretch",
-    "justify-content": "stretch",
-    "pointer-events": "none",
-  },
-  [CSS.dragDropPreviewInner]: {
-    flex: 1,
-  },
-  [CSS.dragDropPreviewDefault]: {
-    border: "2px dashed #999",
-    "background-color": "#f0f0f0",
+    opacity: 1.0,
   },
 };
 
@@ -67,7 +38,6 @@ function mountStylesToHead() {
     const styleString = Object.entries(styles)
       .map(([key, value]) => `${key}: ${value};`)
       .join(" ");
-    // 简单类名补 `.` 前缀；含空格 / `.` / `[` 等的复杂选择器原样输出
     const selector = /[\s.\[]/.test(className) ? className : `.${className}`;
     cssString += `${selector} { ${styleString} }\n`;
   }

@@ -1,14 +1,11 @@
+/**
+ * 核心 CSS 类名。
+ * 插件相关的类名（preview / animated 等）由插件自己定义。
+ */
 export const CSS = {
   dragContainer: "drag-container",
   vertical: "vertical",
   horizontal: "horizontal",
   dragDraggableWrapper: "drag-draggable-wrapper",
-  animated: "animated",
   dragGhost: "drag-ghost",
-
-  // 预览相关的类名
-  dragDropPreviewConstant: "drag-drop-preview-constant",
-  dragDropPreviewFlexContainer: "drag-drop-preview-flex-container",
-  dragDropPreviewInner: "drag-drop-preview-inner",
-  dragDropPreviewDefault: "drag-drop-preview-default",
 };
