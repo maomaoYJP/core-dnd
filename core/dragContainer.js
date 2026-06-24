@@ -49,7 +49,7 @@ export class DragContainer {
   // 对外（插件 ctx、用户回调）一律基于 items 坐标。
   get visibleItems() {
     return this.draggedItem
-      ? this.items.filter((it) => it !== this.draggedItem)
+      ? this.items.filter((it) => it.element !== this.draggedItem.element)
       : this.items;
   }
 

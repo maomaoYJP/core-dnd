@@ -28,7 +28,7 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
 
         if (initialIndex < insertIndex) {
           const distance =
-            index > initialIndex && index < insertIndex ? -step : 0;
+            index > initialIndex && index <= insertIndex ? -step : 0;
           item.element.style.transform = axis.translate(distance);
         } else {
           const distance =

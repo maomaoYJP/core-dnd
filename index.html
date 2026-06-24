@@ -8,7 +8,7 @@
   <style>
     .container {
       width: 600px;
-      height: 300px;
+      height: 600px;
       margin: 20px auto;
       overflow: auto;
       padding: 8px;
@@ -60,6 +60,11 @@
       background-color: lightblue;
       border-radius: 6px;
     }
+
+    .drag-preview {
+      border: 1px dashed #000;
+      background-color: rgba(0, 0, 0, 0.1);
+    }
   </style>
   <body>
     <div style="display: flex; flex-direction: column; gap: 20px">
@@ -99,10 +104,11 @@
     import { DragContainer } from "./index.js";
     import { ghostStylePlugin } from "./plugins/ghostStylePlugin.js";
     import { reflowPlugin } from "./plugins/reflowPlugin.js";
+    import { previewPlugin } from "./plugins/previewPlugin.js";
 
     // 容器 1：空插件，核心最小模式
     new DragContainer(document.querySelector("#container"), {
-      plugins: [ghostStylePlugin(), reflowPlugin()],
+      plugins: [ghostStylePlugin(), reflowPlugin(), previewPlugin()],
       onStart: (e) => console.log("start", e),
       onMove: (e) => {
         // console.log("move", e);
@@ -124,7 +130,7 @@
     // 容器 3：横向
     new DragContainer(document.querySelector("#hcontainer"), {
       axis: "horizontal",
-      plugins: [],
+      plugins: [ghostStylePlugin(), reflowPlugin(), previewPlugin()],
       onStart: (e) => console.log("start", e),
       onEnd: (e) => console.log("end", e),
     });

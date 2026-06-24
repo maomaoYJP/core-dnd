@@ -11,11 +11,11 @@
     hooks.js            钩子总线
 
   /plugins
-    animation.js        ★ reflow 让位 + ghost 飞行
+    reflowPlugin.js     reflow 让位 + ghost 飞行
     preview.js          ★ preview 元素生命周期
     group.js            ★ pull/put 规则
     handle.js           ★ 把手 / filter
-    autoScroll.js       ★ 自动滚动（顺手抽出来）
+    autoScroll.js       ★ 自动滚动
 
   index.js              导出 DragContainer + 内置插件
   constant.js
@@ -68,3 +68,20 @@ onMove 不传 newIndex 是个关键设计——因为 newIndex 在"还没提交"
 1. 新增onSessionEndAsync钩子，允许先执行完插件操作，再进行后续操作
 
 onSessionEndAsync的时机是松手之后，但是在dom提交之后，endDrag之前
+
+## 实现previewPlugin
+
+思路：
+
+1. preview使用absolute定位，放到container中
+2. onSessionStart中，创建preview元素，设置样式，添加到container中
+3. 计算需要添加到的位置，由于是相对容器定位，而系统中坐标都是相对viewport的，所以需要计算出相对容器的坐标
+4. onSessionMove中，更新preview元素的位置
+5. onSessionLeave中，隐藏preview元素
+6. onSessionEnd中，移除preview元素
+
+找到preview的top位置
+
+1. 定义step，这个是空位的大小。只需要找到top或者bottom，和这俩计算就知道preview应该的位置
+2. 如果是从上往下拖，使用insertIndex后面的元素的top作为参考，如果没有后面元素了，就用最后一个元素的bottom作为参考
+3. 如果是从下往上拖，使用insertIndex前面的元素的bottom作为参考，如果没有前面元素了，就用第一个元素的top作为参考

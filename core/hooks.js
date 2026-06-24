@@ -7,9 +7,13 @@
 
 // 定义hooks名称枚举
 export const HooksEnum = {
+  // 开始拖拽之前触发，在acceptDrag后
   onSessionStart: "onSessionStart",
+  // 拖拽过程中触发，在updateDrag后
   onSessionMove: "onSessionMove",
+  // 离开本容器，在releaseDrag之前
   onSessionLeave: "onSessionLeave",
+  // 整次会话彻底结束，在endDrag之前
   onSessionEnd: "onSessionEnd",
   // 跨容器场景，会执行两次
   onSessionEndAsync: "onSessionEndAsync",

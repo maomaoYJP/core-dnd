@@ -45,6 +45,11 @@ export class Axis {
     return this.isX ? `translateX(${distance}px)` : `translateY(${distance}px)`;
   }
 
+  // 设置主轴起点
+  setMainStart(el, v) {
+    el.style[this.keys.start] = `${v}px`;
+  }
+
   // ============ 算 ============
   // 二分查找：ghost 中心落在 items 哪个插入位之前，还需要考虑translate的影响
   // items: [{ rect }]
