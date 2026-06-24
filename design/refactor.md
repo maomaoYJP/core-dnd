@@ -46,3 +46,16 @@ onMove 不传 newIndex 是个关键设计——因为 newIndex 在"还没提交"
 修改：
 在ctx中传入ghost引用，插件可以在onStart中获取ghost元素并进行样式增强。
 因为ghost元素session创建，一次会话唯一的，就算有多个container，ghost也是一个引用，将其传入ctx中是安全的。
+
+## 实现reflowPlugin
+
+思路：
+
+1. onSessionStart中，给需要过渡的元素添加过渡样式
+2. onSessionMove中，计算每个元素应该移动的距离，设置transform
+   1. 根据 initialIndex和insertIndex计算每个元素的位移。
+   2. 具体逻辑，如果 initialIndex < insertIndex，说明dragged元素向后移动，所有在initialIndex和insertIndex之间的元素都需要向前移动一位。
+   3. 如果 initialIndex > insertIndex，说明dragged元素向前移动，所有在insertIndex和initialIndex之间的元素都需要向后移动一位。
+   4. 移动的距离是固定的step，就是被拖动元素的高度或宽度，取决于容器的方向。
+3. onSessionLeave中，清除transform
+4. onSessionEnd中，清除过渡样式

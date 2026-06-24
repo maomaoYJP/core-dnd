@@ -98,10 +98,11 @@
   <script type="module">
     import { DragContainer } from "./index.js";
     import { ghostStylePlugin } from "./plugins/ghostStylePlugin.js";
+    import { reflowPlugin } from "./plugins/reflowPlugin.js";
 
     // 容器 1：空插件，核心最小模式
     new DragContainer(document.querySelector("#container"), {
-      plugins: [ghostStylePlugin()],
+      plugins: [ghostStylePlugin(), reflowPlugin()],
       onStart: (e) => console.log("start", e),
       onMove: (e) => {
         // console.log("move", e);
@@ -113,7 +114,7 @@
 
     // 容器 2
     new DragContainer(document.querySelector("#container2"), {
-      plugins: [],
+      plugins: [ghostStylePlugin(), reflowPlugin()],
       onStart: (e) => console.log("start", e),
       onEnd: (e) => console.log("end", e),
       onAdd: (e) => console.log("add", e),

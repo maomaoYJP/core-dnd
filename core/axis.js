@@ -21,6 +21,10 @@ export class Axis {
           end: "bottom",
           scrollProp: "scrollTop",
         };
+
+    this.translateRe = this.isX
+      ? /translateX\((-?[\d.]+)px\)/
+      : /translateY\((-?[\d.]+)px\)/;
   }
 
   // ============ 读 ============
@@ -37,8 +41,12 @@ export class Axis {
     return el[this.keys.scrollProp];
   }
 
+  translate(distance) {
+    return this.isX ? `translateX(${distance}px)` : `translateY(${distance}px)`;
+  }
+
   // ============ 算 ============
-  // 二分查找：ghost 中心落在 items 哪个插入位之前
+  // 二分查找：ghost 中心落在 items 哪个插入位之前，还需要考虑translate的影响
   // items: [{ rect }]
   findInsertIndex(ghostRect, items) {
     const ghostCenter = this.startOf(ghostRect) + this.sizeOf(ghostRect) / 2;
@@ -48,12 +56,23 @@ export class Axis {
     while (low < high) {
       const mid = (low + high) >> 1;
       const it = items[mid];
-      const start = this.startOf(it.rect);
+      const translate = this.correctedTranslate(it.element.style.transform);
+      const start = this.startOf(it.rect) + translate;
       const midpoint = start + this.sizeOf(it.rect) / 2;
 
       if (ghostCenter < midpoint) high = mid;
       else low = mid + 1;
     }
     return low;
+  }
+
+  parseTranslate(transformStr) {
+    if (!transformStr) return 0;
+    const m = transformStr.match(this.translateRe);
+    return m ? parseFloat(m[1]) : 0;
+  }
+
+  correctedTranslate(transformStr) {
+    return this.parseTranslate(transformStr);
   }
 }
