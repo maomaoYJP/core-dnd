@@ -175,11 +175,15 @@ export class DragContainer {
   /**
    * 整次会话彻底结束
    */
-  endDrag() {
+  async endDrag() {
+    // 异步收尾：插件 onSessionEndAsync 收集 Promise， await 后再继续收尾
+    await this.hooks.fireAsync(HooksEnum.onSessionEndAsync, this._ctx());
+    // 同步的end回调
+    this.hooks.fire(HooksEnum.onSessionEnd, this._ctx());
+
     if (this.initialIndex !== null && this.draggedItem) {
       this.draggedItem.element.style.visibility = "visible";
     }
-    this.hooks.fire(HooksEnum.onSessionEnd, this._ctx());
 
     this.initialIndex = null;
     this.insertIndex = null;

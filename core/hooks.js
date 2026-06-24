@@ -1,9 +1,8 @@
 /**
  * Hooks：插件钩子总线。
-
+ *
  * fire(name, ctx) 同步广播。ctx._cancelled = true 可短路后续插件。
- * ctx._pendingEnds: 用于 onSessionDrop 等异步钩子收集 Promise，
- *                   核心 await 所有 pending 后再继续收尾。
+ * fireAsync(name, ctx) 异步广播。ctx._pendingEnds 收集 Promise，await 后再继续收尾。
  */
 
 // 定义hooks名称枚举
@@ -12,7 +11,7 @@ export const HooksEnum = {
   onSessionMove: "onSessionMove",
   onSessionLeave: "onSessionLeave",
   onSessionEnd: "onSessionEnd",
-  onSessionDrop: "onSessionDrop",
+  onSessionEndAsync: "onSessionEndAsync",
 };
 
 export class Hooks {
@@ -44,10 +43,21 @@ export class Hooks {
   }
 
   async fireAsync(name, ctx) {
-    if (ctx) ctx._pendingEnds = [];
-    this.fire(name, ctx);
-    if (ctx && ctx._pendingEnds.length) {
-      await Promise.all(ctx._pendingEnds);
+    const handlers = this.map[name];
+    if (!handlers) return;
+
+    const promises = [];
+    for (const fn of handlers) {
+      const result = fn(ctx);
+      // 如果返回值是 Promise，则收集起来
+      if (result && typeof result.then === "function") {
+        promises.push(result);
+      }
+      if (ctx && ctx._cancelled) break;
+    }
+    // 如果有异步插件，等待所有插件执行完毕，再继续后续流程
+    if (promises.length) {
+      await Promise.all(promises);
     }
   }
 }

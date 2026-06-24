@@ -1,3 +1,8 @@
+/**
+ * reflowPlugin：拖动过程中，其他元素的移动动画插件。
+ * 1. 拖动过程中，其他元素的移动动画。
+ * 2. 拖动结束后，ghost元素移动到目标位置的动画。
+ */
 export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
   let lastKey = null;
 
@@ -42,6 +47,23 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     }
   };
 
+  function animateDrop(ctx) {
+    const ghostEl = ctx.ghost.element;
+    const dragged = ctx.draggedItem.element;
+
+    // 得到目标位置：DOM 已经提交了，dragged 已经在新槽位，直接读它
+    const targetRect = dragged.getBoundingClientRect();
+
+    ghostEl.style.transition = `left ${duration}ms ${easing}, top ${duration}ms ${easing}`;
+    ghostEl.style.left = `${targetRect.left}px`;
+    ghostEl.style.top = `${targetRect.top}px`;
+
+    // 3. 等过渡结束
+    return new Promise((resolve) => {
+      ghostEl.addEventListener("transitionend", resolve, { once: true });
+    });
+  }
+
   const setTransitions = (items, value) => {
     items.forEach((it) => (it.element.style.transition = value));
   };
@@ -62,12 +84,15 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
       lastKey = null;
       ctx.items.forEach((it) => (it.element.style.transform = ""));
     },
-    onSessionEnd(ctx) {
+    onSessionEndAsync(ctx) {
       ctx.items.forEach((it) => {
         it.element.style.transition = "";
         it.element.style.transform = "";
       });
+
       lastKey = null;
+      const promise = animateDrop(ctx);
+      return promise;
     },
   };
 }

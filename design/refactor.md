@@ -59,3 +59,12 @@ onMove 不传 newIndex 是个关键设计——因为 newIndex 在"还没提交"
    4. 移动的距离是固定的step，就是被拖动元素的高度或宽度，取决于容器的方向。
 3. onSessionLeave中，清除transform
 4. onSessionEnd中，清除过渡样式
+
+问题：
+现在没有松手之后回到目标位置的过渡效果
+
+思路：
+
+1. 新增onSessionEndAsync钩子，允许先执行完插件操作，再进行后续操作
+
+onSessionEndAsync的时机是松手之后，但是在dom提交之后，endDrag之前

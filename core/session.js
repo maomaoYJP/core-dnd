@@ -80,6 +80,7 @@ export class DragSession {
             next === this.sourceContainer ? this.initialIndex : null,
           draggedItem: this.draggedItem,
           sourceContainer: this.sourceContainer,
+          ghost: this.ghost,
         };
         next.acceptDrag(opts);
       }
@@ -95,7 +96,7 @@ export class DragSession {
   };
 
   // ==================== 结束 ====================
-  end() {
+  async end() {
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -141,9 +142,14 @@ export class DragSession {
 
     from.triggerEvent("onEnd", evt);
 
-    from.endDrag();
-    if (to && to !== from) {
-      to.endDrag();
+    // 根据当前在哪个容器，哪个容器先endDrag
+    const order = [];
+
+    if (this.activeContainer) order.push(this.activeContainer);
+    if (from && !order.includes(from)) order.push(from);
+
+    for (const c of order) {
+      await c.endDrag();
     }
 
     this.ghost.unmount();
