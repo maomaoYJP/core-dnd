@@ -85,12 +85,16 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
       ctx.items.forEach((it) => (it.element.style.transform = ""));
     },
     onSessionEndAsync(ctx) {
+      lastKey = null;
       ctx.items.forEach((it) => {
         it.element.style.transition = "";
         it.element.style.transform = "";
       });
 
-      lastKey = null;
+      // ghost 动画只由源容器负责
+      if (ctx.sourceContainer !== ctx.container) {
+        return;
+      }
       const promise = animateDrop(ctx);
       return promise;
     },

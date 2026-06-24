@@ -11,6 +11,7 @@ export const HooksEnum = {
   onSessionMove: "onSessionMove",
   onSessionLeave: "onSessionLeave",
   onSessionEnd: "onSessionEnd",
+  // 跨容器场景，会执行两次
   onSessionEndAsync: "onSessionEndAsync",
 };
 
