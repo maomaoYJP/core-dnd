@@ -54,13 +54,24 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     // 得到目标位置：DOM 已经提交了，dragged 已经在新槽位，直接读它
     const targetRect = dragged.getBoundingClientRect();
 
-    ghostEl.style.transition = `left ${duration}ms ${easing}, top ${duration}ms ${easing}`;
+    ghostEl.style.transition = `all ${duration}ms ${easing}`;
     ghostEl.style.left = `${targetRect.left}px`;
     ghostEl.style.top = `${targetRect.top}px`;
 
     // 3. 等过渡结束
     return new Promise((resolve) => {
-      ghostEl.addEventListener("transitionend", resolve, { once: true });
+      let hasResolved = false;
+      const doResolve = () => {
+        if (hasResolved) return;
+        hasResolved = true;
+        resolve();
+      };
+
+      ghostEl.addEventListener("transitionend", doResolve, { once: true });
+
+      const timer = setTimeout(() => {
+        doResolve();
+      }, duration + 50);
     });
   }
 
