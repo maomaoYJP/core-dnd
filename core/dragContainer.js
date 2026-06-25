@@ -13,6 +13,8 @@ import { HooksEnum } from "./hooks.js";
  *   3. 提交 DOM 变更（takeNode / dropNode）
  *   4. 响应 session 生命周期，并广播给插件
  *   5. 触发用户回调
+ *
+ * 容器本身不持有任何"本次会话"的状态——所有会话态由 DragSession 持有并显式传入。
  */
 export class DragContainer {
   constructor(containerElement, options = {}) {
@@ -28,16 +30,6 @@ export class DragContainer {
     this.container = { element: containerElement, rect: null };
     this.items = []; // [{ element, rect }]
 
-    // 本次会话状态（session 期间由 acceptDrag 写入）
-    // initialIndex：dragged 在 items 中的原位置；非源容器为 null
-    this.initialIndex = null;
-    // dragged 提交后将位于 items 中的目标位置；与 initialIndex 同坐标系
-    // null = 无有效目标（onMove 拒绝 / 尚未计算 / 容器外），不插入
-    this.insertIndex = null;
-    this.draggedItem = null;
-    this.sessionSource = null;
-    this.ghost = null;
-
     this._initStructure();
     this.refreshRects();
 
@@ -47,9 +39,9 @@ export class DragContainer {
   // =================== 读 ====================
   // 隐藏被拖元素后，剩余可见元素。仅 updateDrag 内部用作几何计算的输入；
   // 对外（插件 ctx、用户回调）一律基于 items 坐标。
-  get visibleItems() {
-    return this.draggedItem
-      ? this.items.filter((it) => it.element !== this.draggedItem.element)
+  _visibleItems(draggedItem) {
+    return draggedItem
+      ? this.items.filter((it) => it.element !== draggedItem.element)
       : this.items;
   }
 
@@ -109,119 +101,117 @@ export class DragContainer {
 
   // ==================== session 生命周期 ====================
   /**
-   * 拖动进入本容器，或本容器是源容器，由 session 在 start 时调用
-   * 初始化本容器的会话状态。
+   * 拖动进入本容器，或本容器是源容器，由 session 在 start / 切换容器时调用。
+   * 注意：这里只刷新 rect 并通知插件；具体会话状态由 session 持有。
    */
-  acceptDrag({ initialIndex, draggedItem, sourceContainer, ghost }) {
-    this.initialIndex = initialIndex;
-    this.insertIndex = null;
-    this.draggedItem = draggedItem;
-    this.sessionSource = sourceContainer ?? this;
-    this.ghost = ghost;
+  acceptDrag(session) {
+    // 进入新容器时，session.insertIndex 在本容器坐标系下应当从"未计算"开始
+    session.insertIndex = null;
     this.refreshRects();
 
     // 源容器：隐藏被拖元素
-    if (this.initialIndex !== null) {
-      this.draggedItem.element.style.visibility = "hidden";
+    if (session.sourceContainer === this) {
+      session.draggedItem.element.style.visibility = "hidden";
     }
 
-    this.hooks.fire(HooksEnum.onSessionStart, this._ctx());
+    this.hooks.fire(HooksEnum.onSessionStart, this._ctx(session));
   }
 
   /**
-   * 每帧调用：根据 ghost 当前 rect 算落点，更新并返回 this.insertIndex。
+   * 每帧调用：根据 ghost 当前 rect 算落点，写回 session.insertIndex 并返回。
    */
-  updateDrag(ghostRect) {
-    const rawIndex = this.axis.findInsertIndex(ghostRect, this.visibleItems);
+  updateDrag(session) {
+    const ghostRect = session.ghost.rect;
+    const visibleItems = this._visibleItems(session.draggedItem);
+    const rawIndex = this.axis.findInsertIndex(ghostRect, visibleItems);
 
     // 描述落点位置：related = 参考元素，willInsertAfter = 是否插在它之后
     // 约定：仅当落到末尾时 willInsertAfter=true，related 为最后一项；
     // 其余情况统一表述为"insert before related"
     let related;
     let willInsertAfter;
-    if (this.visibleItems.length === 0) {
+    if (visibleItems.length === 0) {
       related = null;
       willInsertAfter = false;
-    } else if (rawIndex >= this.visibleItems.length) {
-      related = this.visibleItems[this.visibleItems.length - 1].element;
+    } else if (rawIndex >= visibleItems.length) {
+      related = visibleItems[visibleItems.length - 1].element;
       willInsertAfter = true;
     } else {
-      related = this.visibleItems[rawIndex].element;
+      related = visibleItems[rawIndex].element;
       willInsertAfter = false;
     }
 
     const accepted = this.triggerEvent("onMove", {
-      item: this.draggedItem.element,
-      from: this.sessionSource.containerEl,
+      item: session.draggedItem.element,
+      from: session.sourceContainer.containerEl,
       to: this.containerEl,
       related,
       willInsertAfter,
     });
 
     // null = onMove 拒绝（无有效目标位置）；其余 = items 坐标的目标位置
-    this.insertIndex = accepted === false ? null : rawIndex;
-    this.hooks.fire(HooksEnum.onSessionMove, this._ctx());
-    return this.insertIndex;
+    session.insertIndex = accepted === false ? null : rawIndex;
+    this.hooks.fire(HooksEnum.onSessionMove, this._ctx(session));
+    return session.insertIndex;
   }
 
   /**
    * 离开本容器（切换到别的容器之前调用）。
    */
-  releaseDrag() {
-    this.hooks.fire(HooksEnum.onSessionLeave, this._ctx());
-    this.insertIndex = null;
+  releaseDrag(session) {
+    this.hooks.fire(HooksEnum.onSessionLeave, this._ctx(session));
+    session.insertIndex = null;
   }
 
   /**
    * 整次会话彻底结束
    */
-  async endDrag() {
+  async endDrag(session) {
     // 异步收尾：插件 onSessionEndAsync 收集 Promise， await 后再继续收尾
-    await this.hooks.fireAsync(HooksEnum.onSessionEndAsync, this._ctx());
+    await this.hooks.fireAsync(HooksEnum.onSessionEndAsync, this._ctx(session));
     // 同步的end回调
-    this.hooks.fire(HooksEnum.onSessionEnd, this._ctx());
+    this.hooks.fire(HooksEnum.onSessionEnd, this._ctx(session));
 
-    if (this.initialIndex !== null && this.draggedItem) {
-      this.draggedItem.element.style.visibility = "visible";
+    // 源容器：恢复 dragged 可见
+    if (session.sourceContainer === this && session.draggedItem) {
+      session.draggedItem.element.style.visibility = "visible";
     }
 
-    this.initialIndex = null;
-    this.insertIndex = null;
-    this.draggedItem = null;
-    this.sessionSource = null;
-    this.ghost = null;
     this.refreshRects();
   }
 
   // ==================== DOM 提交 ====================
-  takeNode() {
-    const el = this.draggedItem.element;
+  takeNode(session) {
+    const el = session.draggedItem.element;
     this.containerEl.removeChild(el);
     return el;
   }
 
-  dropNode(node) {
-    if (this.insertIndex >= this.visibleItems.length) {
+  dropNode(session, node) {
+    const visibleItems = this._visibleItems(session.draggedItem);
+    if (session.insertIndex >= visibleItems.length) {
       this.containerEl.appendChild(node);
     } else {
       this.containerEl.insertBefore(
         node,
-        this.visibleItems[this.insertIndex].element,
+        visibleItems[session.insertIndex].element,
       );
     }
   }
 
   // ==================== 给插件的上下文 ====================
-  _ctx() {
+  // ctx 的形状保持向后兼容；所有会话态都从 session 上读
+  _ctx(session) {
+    const isSource = session.sourceContainer === this;
     return {
       container: this,
       axis: this.axis,
       items: this.items,
-      draggedItem: this.draggedItem,
-      initialIndex: this.initialIndex,
-      insertIndex: this.insertIndex,
-      sourceContainer: this.sessionSource,
-      ghost: this.ghost,
+      draggedItem: session.draggedItem,
+      initialIndex: isSource ? session.initialIndex : null,
+      insertIndex: session.insertIndex,
+      sourceContainer: session.sourceContainer,
+      ghost: session.ghost,
       options: this.options,
     };
   }

@@ -23,6 +23,9 @@ class DragManager {
   }
 
   _onMouseDown = (event) => {
+    // 上一次 session 还没收尾完，忽略本次按下
+    if (this.session) return;
+
     const container = this.containers.find((c) =>
       c.containsPoint(event.clientX, event.clientY),
     );
@@ -46,13 +49,20 @@ class DragManager {
     if (this.session) this.session.updatePointer(event);
   };
 
-  _onMouseUp = () => {
-    if (this.session) {
-      this.session.end();
-      this.session = null;
-    }
+  _onMouseUp = async () => {
+    if (!this.session) return;
+
     window.removeEventListener("mousemove", this._onMouseMove);
     window.removeEventListener("mouseup", this._onMouseUp);
+
+    // 保证同一时刻只存在一个 session。
+    try {
+      await this.session.end();
+    } catch (err) {
+      console.error("[any-drag] session end failed:", err);
+    } finally {
+      this.session = null;
+    }
   };
 }
 

@@ -7,10 +7,12 @@ import { Ghost } from "./ghost.js";
  *
  * 核心职责：
  *   1. 创建 ghost
- *   2. 每帧计算当前活动容器和落点 insertIndex
- *   3. 跨容器切换时通知容器（releaseDrag / acceptDrag）
- *   4. 结束时提交 DOM 变更（takeNode / dropNode），触发回调
-
+ *   2. 持有本次会话的状态（draggedItem / initialIndex / insertIndex / activeContainer / ghost）
+ *   3. 每帧计算当前活动容器和落点 insertIndex
+ *   4. 跨容器切换时通知容器（releaseDrag / acceptDrag）
+ *   5. 结束时提交 DOM 变更（takeNode / dropNode），触发回调
+ *
+ * 会话态都放在 session 实例上，由容器方法显式读写。
  */
 export class DragSession {
   constructor({ sourceContainer, initialIndex, pointerEvent }) {
@@ -34,17 +36,12 @@ export class DragSession {
   // ==================== 启动 ====================
   start() {
     // 创建并添加 ghost，全局唯一的
-    const itemEl = this.sourceContainer.items[this.initialIndex].element;
+    const itemEl = this.draggedItem.element;
     this.ghost = new Ghost(itemEl, this.pointerEvent);
     this.ghost.mount();
 
     // 通知源容器开始拖拽，容器做拖拽前的准备
-    this.sourceContainer.acceptDrag({
-      initialIndex: this.initialIndex,
-      draggedItem: this.draggedItem,
-      sourceContainer: this.sourceContainer,
-      ghost: this.ghost,
-    });
+    this.sourceContainer.acceptDrag(this);
 
     // 启动渲染循环
     this.rafId = requestAnimationFrame(this._frame);
@@ -73,23 +70,14 @@ export class DragSession {
     const next = this._resolveActiveContainer();
 
     if (next !== prev) {
-      if (prev) prev.releaseDrag();
-      if (next) {
-        const opts = {
-          initialIndex:
-            next === this.sourceContainer ? this.initialIndex : null,
-          draggedItem: this.draggedItem,
-          sourceContainer: this.sourceContainer,
-          ghost: this.ghost,
-        };
-        next.acceptDrag(opts);
-      }
+      if (prev) prev.releaseDrag(this);
+      if (next) next.acceptDrag(this);
       this.activeContainer = next;
     }
 
-    // 4. 更新落点
+    // 3. 更新落点
     if (next) {
-      this.insertIndex = next.updateDrag(this.ghost.rect);
+      this.insertIndex = next.updateDrag(this);
     }
 
     this.rafId = requestAnimationFrame(this._frame);
@@ -131,8 +119,8 @@ export class DragSession {
 
     // 提交 DOM 变更
     if (committed) {
-      const node = from.takeNode();
-      to.dropNode(node);
+      const node = from.takeNode(this);
+      to.dropNode(this, node);
 
       if (from !== to) {
         from.triggerEvent("onRemove", evt);
@@ -149,7 +137,7 @@ export class DragSession {
     if (from && !order.includes(from)) order.push(from);
 
     for (const c of order) {
-      await c.endDrag();
+      await c.endDrag(this);
     }
 
     this.ghost.unmount();
