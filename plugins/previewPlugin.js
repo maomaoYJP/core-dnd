@@ -1,3 +1,8 @@
+/**
+ * 每个容器的 plugin 实例各自管理自己的 previewEl。
+ * 源容器：previewEl 整个会话期间持续存在，离开时回到被拖元素原位置。
+ * 非源容器：进入时创建，离开时移除。
+ */
 export function previewPlugin({
   className = "drag-preview",
   duration = 200,
@@ -6,76 +11,97 @@ export function previewPlugin({
   let previewEl = null;
   let lastKey = null;
 
-  const createPreviewEl = (ctx) => {
-    if (previewEl) return;
+  const isSource = (ctx) => ctx.sourceContainer === ctx.container;
 
+  const createPreviewEl = (ctx) => {
     previewEl = document.createElement("div");
     previewEl.classList.add(className);
 
-    const draggedRect = ctx.draggedItem.rect;
+    const draggedItem = ctx.draggedItem;
     const containerRect = ctx.container.container.rect;
 
-    const offsetTop = draggedRect.top - containerRect.top;
-    const offsetLeft = draggedRect.left - containerRect.left;
-    // 设置预览元素的初始位置和大小
-    previewEl.style.width = `${draggedRect.width}px`;
-    previewEl.style.height = `${draggedRect.height}px`;
-    previewEl.style.top = `${offsetTop}px`;
-    previewEl.style.left = `${offsetLeft}px`;
-
+    // 初始化位置
+    // 源容器：initIndex 位置
+    // 非源容器：一开始进入的时候insertIndex为null，先创建隐藏，等update时再移动
     previewEl.style.position = "absolute";
     previewEl.style.pointerEvents = "none";
-    previewEl.style.transition = `all ${duration}ms ${easing}`;
+    previewEl.style.transition = "none";
+
+    previewEl.style.width = `${draggedItem.rect.width}px`;
+    previewEl.style.height = `${draggedItem.rect.height}px`;
+
+    if (isSource(ctx)) {
+      const initTop = draggedItem.rect.top - containerRect.top;
+      const initLeft = draggedItem.rect.left - containerRect.left;
+      previewEl.style.top = `${initTop}px`;
+      previewEl.style.left = `${initLeft}px`;
+    }
 
     ctx.container.containerEl.appendChild(previewEl);
+
+    // 下一帧再启用 transition
+    requestAnimationFrame(() => {
+      if (previewEl) {
+        previewEl.style.transition = `all ${duration}ms ${easing}`;
+      }
+    });
   };
 
   const updatePreviewEl = (ctx) => {
     if (!previewEl) return;
+    if (ctx.insertIndex == null) return;
 
     const insertIndex = ctx.insertIndex;
     const initialIndex = ctx.initialIndex;
-    const draggedItem = ctx.draggedItem;
     const items = ctx.items;
     const container = ctx.container.container;
-
-    // 这是空位的大小，只要找到需要插入的top或者bottom位置，减去这个距离，就能把预览元素放到正确的位置了。
-    const draggedItemSize = ctx.axis.sizeOf(draggedItem.rect);
+    const axis = ctx.axis;
     const gap = parseFloat(getComputedStyle(container.element).gap || 0);
 
     let distance = 0;
 
-    // 从上往下拖
-    if (initialIndex <= insertIndex) {
-      // 找到insertIndex之后的一个元素，以它的top为基准
-      if (insertIndex < items.length - 1) {
-        const relatedItem = items[insertIndex + 1];
-        const relatedRect = relatedItem.rect;
-        distance =
-          ctx.axis.startOf(relatedRect) -
-          ctx.axis.startOf(container.rect) -
-          draggedItemSize -
-          gap;
+    // 非源容器
+    if (initialIndex == null) {
+      if (items.length === 0) {
+        distance = 0;
+      } else if (insertIndex >= items.length) {
+        const last = items[items.length - 1];
+        distance = axis.endOf(last.rect) - axis.startOf(container.rect) + gap;
       } else {
-        // 如果拖到末尾了，就以最后一个元素为基准
-        const lastItem = items[items.length - 1];
-        const lastRect = lastItem.rect;
-        distance =
-          ctx.axis.endOf(lastRect) -
-          ctx.axis.startOf(container.rect) -
-          draggedItemSize;
+        const related = items[insertIndex];
+        distance = axis.startOf(related.rect) - axis.startOf(container.rect);
       }
     } else {
-      // 从下往上拖
-      // 找到insertIndex的元素，以它的top为基准
-      const relatedItem = items[insertIndex];
-      const relatedRect = relatedItem.rect;
+      // 源容器：items 包含被拖元素（隐藏），需要在两侧分别处理
+      const draggedItemSize = axis.sizeOf(ctx.draggedItem.rect);
 
-      distance =
-        ctx.axis.startOf(relatedRect) - ctx.axis.startOf(container.rect);
+      if (initialIndex <= insertIndex) {
+        // 从上往下拖
+        if (insertIndex < items.length - 1) {
+          // 以 insertIndex 之后的一个元素为基准
+          const relatedItem = items[insertIndex + 1];
+          distance =
+            axis.startOf(relatedItem.rect) -
+            axis.startOf(container.rect) -
+            draggedItemSize -
+            gap;
+        } else {
+          // 拖到末尾：以最后一个元素为基准
+          const lastItem = items[items.length - 1];
+          distance =
+            axis.endOf(lastItem.rect) -
+            axis.startOf(container.rect) -
+            draggedItemSize;
+        }
+      } else {
+        // 从下往上拖：以 insertIndex 元素为基准
+        const relatedItem = items[insertIndex];
+        distance =
+          axis.startOf(relatedItem.rect) - axis.startOf(container.rect);
+      }
     }
 
-    ctx.axis.setMainStart(previewEl, distance);
+    axis.setMainStart(previewEl, distance);
   };
 
   return {
@@ -83,7 +109,10 @@ export function previewPlugin({
 
     onSessionStart(ctx) {
       lastKey = null;
-      createPreviewEl(ctx);
+
+      if (!previewEl) {
+        createPreviewEl(ctx);
+      }
     },
 
     onSessionMove(ctx) {
@@ -94,8 +123,21 @@ export function previewPlugin({
     },
 
     onSessionLeave(ctx) {
-      if (previewEl) previewEl.style.display = "none";
       lastKey = null;
+
+      if (isSource(ctx)) {
+        // 源容器：离开时回到被拖元素原位置
+        const draggedItem = ctx.draggedItem;
+        const containerRect = ctx.container.container.rect;
+        const initTop = draggedItem.rect.top - containerRect.top;
+        const initLeft = draggedItem.rect.left - containerRect.left;
+        previewEl.style.top = `${initTop}px`;
+        previewEl.style.left = `${initLeft}px`;
+      } else {
+        // 非源容器：离开时移除
+        previewEl?.remove();
+        previewEl = null;
+      }
     },
 
     onSessionEnd(ctx) {

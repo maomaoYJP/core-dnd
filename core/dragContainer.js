@@ -167,10 +167,10 @@ export class DragContainer {
    * 整次会话彻底结束
    */
   async endDrag(session) {
-    // 异步收尾：插件 onSessionEndAsync 收集 Promise， await 后再继续收尾
-    await this.hooks.fireAsync(HooksEnum.onSessionEndAsync, this._ctx(session));
     // 同步的end回调
     this.hooks.fire(HooksEnum.onSessionEnd, this._ctx(session));
+    // 异步收尾：插件 onSessionEndAsync 收集 Promise， await 后再继续收尾
+    await this.hooks.fireAsync(HooksEnum.onSessionEndAsync, this._ctx(session));
 
     // 源容器：恢复 dragged 可见
     if (session.sourceContainer === this && session.draggedItem) {
@@ -211,6 +211,7 @@ export class DragContainer {
       initialIndex: isSource ? session.initialIndex : null,
       insertIndex: session.insertIndex,
       sourceContainer: session.sourceContainer,
+      activeContainer: session.activeContainer,
       ghost: session.ghost,
       options: this.options,
     };
