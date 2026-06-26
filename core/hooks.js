@@ -1,8 +1,5 @@
 /**
  * Hooks：插件钩子总线。
- *
- * fire(name, ctx) 同步广播。ctx._cancelled = true 可短路后续插件。
- * fireAsync(name, ctx) 异步广播。ctx._pendingEnds 收集 Promise，await 后再继续收尾。
  */
 
 // 定义hooks名称枚举
@@ -10,7 +7,8 @@ export const HookNames = {
   onBeforeSessionStart: "onBeforeSessionStart",
   onSessionStart: "onSessionStart",
   onContainerEnter: "onContainerEnter",
-  onSessionMove: "onSessionMove",
+  onBeforeSessionFrame: "onBeforeSessionFrame",
+  onSessionFrame: "onSessionFrame",
   onContainerLeave: "onContainerLeave",
   onBeforeSessionEnd: "onBeforeSessionEnd",
   onSessionEnd: "onSessionEnd",
@@ -23,7 +21,7 @@ export class HookBus {
   register(plugin) {
     if (!plugin) return;
     for (const key of Object.keys(plugin)) {
-      if (!HookNames[key]) {
+      if (!HookNames[key] && key !== "name") {
         console.warn(
           `[any-drag] plugin ${plugin.name || "unknown"} has unknown hook ${key}`,
         );
@@ -37,7 +35,7 @@ export class HookBus {
     }
   }
 
-  // 统一返回 Promise
+  // 统一返回 Promise，同时支持同步和异步
   async fire(name, ctx) {
     const handlers = this.map[name];
     if (!handlers || handlers.length === 0) return;

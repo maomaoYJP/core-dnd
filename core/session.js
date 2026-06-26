@@ -1,21 +1,28 @@
-import { dragManager } from "./dragManager.js";
-import { Ghost } from "./ghost.js";
+import { fireAndAwait, HookNames } from "./hooks.js";
 
 /**
  * DragSession：一次拖拽的完整生命周期。
- * 实现拖拽核心逻辑，其它功能（分组限制、动画、preview等）通过容器钩子由插件实现
  *
  * 核心职责：
- *   1. 创建 ghost
- *   2. 持有本次会话的状态（draggedItem / initialIndex / insertIndex / activeContainer / ghost）
- *   3. 每帧计算当前活动容器和落点 insertIndex
- *   4. 跨容器切换时通知容器（releaseDrag / acceptDrag）
- *   5. 结束时提交 DOM 变更（takeNode / dropNode），触发回调
+ *   1. 持有本次会话的状态（draggedItem / initialIndex / insertIndex / activeContainer / ghost）
+ *   2. 每帧计算当前活动容器和落点 insertIndex
+ *   3. 跨容器切换时通知容器（releaseDrag / acceptDrag）
+ *   4. 在生命周期各时间点触发用户回调（onStart / onMove / onAdd / onRemove / onEnd）
+ *   5. 结束时提交 DOM 变更（takeNode / dropNode）
+ *   6. 在生命周期各时间点触发所有 hook，并提供 ctx（包含本次会话的状态）
  *
- * 会话态都放在 session 实例上，由容器方法显式读写。
+ * 触发时间线：
+ *   onBeforeSessionStart → container.acceptDrag →
+ *   onContainerEnter → onSessionStart →
+ *   rAF:【 onBeforeSessionFrame  → onContainerLeave/Enter →
+ *   updateDrag → onSessionMove】 →
+ *   onBeforeSessionEnd → commit DOM →
+ *   onContainerLeave → onSessionEnd → containers endDrag →
+ *   onSessionCleanup
  */
 export class DragSession {
-  constructor({ sourceContainer, initialIndex, pointerEvent }) {
+  constructor({ manager, sourceContainer, initialIndex, pointerEvent }) {
+    this.manager = manager;
     this.sourceContainer = sourceContainer;
     this.initialIndex = initialIndex;
     this.pointerEvent = pointerEvent;
@@ -24,7 +31,8 @@ export class DragSession {
     // 可变状态
     this.activeContainer = sourceContainer;
     this.insertIndex = initialIndex;
-    this.ghost = null; // Ghost 实例
+    this.ghost = null; // 由 ghostPlugin 在 onBeforeSessionStart 中创建并赋值
+    this.committed = false;
 
     // 最新指针位置
     this.pointer = { x: pointerEvent.clientX, y: pointerEvent.clientY };
@@ -34,19 +42,32 @@ export class DragSession {
   }
 
   // ==================== 启动 ====================
-  start() {
-    // 创建并添加 ghost，全局唯一的
-    const itemEl = this.draggedItem.element;
-    this.ghost = new Ghost(itemEl, this.pointerEvent);
-    this.ghost.mount();
+  async start() {
+    await fireAndAwait(
+      this.manager.hooks,
+      HookNames.onBeforeSessionStart,
+      this._ctx(),
+    );
 
-    // 通知源容器开始拖拽，容器做拖拽前的准备
+    // 源容器准备
     this.sourceContainer.acceptDrag(this);
+
+    await fireAndAwait(
+      this.manager.hooks,
+      HookNames.onContainerEnter,
+      this._ctx({ container: this.sourceContainer }),
+    );
+
+    await fireAndAwait(
+      this.manager.hooks,
+      HookNames.onSessionStart,
+      this._ctx(),
+    );
 
     // 启动渲染循环
     this.rafId = requestAnimationFrame(this._frame);
 
-    // 触发 onStart 回调
+    // 触发用户 onStart 回调
     this.sourceContainer.triggerEvent("onStart", {
       item: this.draggedItem.element,
       from: this.sourceContainer.containerEl,
@@ -62,23 +83,48 @@ export class DragSession {
 
   // ==================== 渲染循环 ====================
   _frame = () => {
-    // 1. 更新ghost位置
-    this.ghost.syncToPointer(this.pointer);
+    // onSessionFrame：每帧最先触发
+    this.manager.hooks.fire(HookNames.onBeforeSessionFrame, this._ctx());
 
-    // 2. 识别当前拖动到的容器，如果不一样则切换容器
+    // 2. 识别当前拖动到的容器，如果切换则发 leave/enter
     const prev = this.activeContainer;
     const next = this._resolveActiveContainer();
 
     if (next !== prev) {
-      if (prev) prev.releaseDrag(this);
-      if (next) next.acceptDrag(this);
+      // 先更新 activeContainer，让 ctx.activeContainer 反映"转移后"的状态
       this.activeContainer = next;
+
+      if (prev) {
+        prev.releaseDrag(this);
+        this.manager.hooks.fire(
+          HookNames.onContainerLeave,
+          this._ctx({ container: prev }),
+        );
+      }
+      if (next) {
+        next.acceptDrag(this);
+        this.manager.hooks.fire(
+          HookNames.onContainerEnter,
+          this._ctx({ container: next }),
+        );
+      }
     }
 
-    // 3. 更新落点
+    // 3. 更新落点 + 触发用户 onMove 回调
     if (next) {
-      this.insertIndex = next.updateDrag(this);
+      const { rawIndex, related, willInsertAfter } = next.updateDrag(this);
+      const accepted = next.triggerEvent("onMove", {
+        item: this.draggedItem.element,
+        from: this.sourceContainer.containerEl,
+        to: next.containerEl,
+        related,
+        willInsertAfter,
+      });
+      // null = onMove 拒绝（无有效目标位置）；其余 = items 坐标的目标位置
+      this.insertIndex = accepted === false ? null : rawIndex;
     }
+
+    this.manager.hooks.fire(HookNames.onSessionFrame, this._ctx());
 
     this.rafId = requestAnimationFrame(this._frame);
   };
@@ -90,25 +136,28 @@ export class DragSession {
       this.rafId = null;
     }
 
-    const target = this.activeContainer;
     const from = this.sourceContainer;
-    const to = target;
+    const to = this.activeContainer;
     const oldIndex = this.initialIndex;
     const item = this.draggedItem.element;
 
-    const committed = this._shouldCommitDomChange(
-      target,
+    this.committed = this._shouldCommitDomChange(
+      to,
       this.insertIndex,
       oldIndex,
       from,
       to,
     );
 
-    // 对外的 newIndex：与 oldIndex 同坐标系（items 坐标）
-    // - 已提交：直接用 insertIndex，它就是"提交后 dragged 在 items 中的位置"
-    // - 未提交（被拒、容器外、没动）：报 oldIndex，表示"等于原位"
-    const newIndex = committed ? this.insertIndex : oldIndex;
+    // onBeforeSessionEnd：DOM 提交前的最后一刻
+    await fireAndAwait(
+      this.manager.hooks,
+      HookNames.onBeforeSessionEnd,
+      this._ctx(),
+    );
 
+    // 提交 DOM + 用户回调
+    const newIndex = this.committed ? this.insertIndex : oldIndex;
     const evt = {
       item,
       from: from.containerEl,
@@ -117,8 +166,7 @@ export class DragSession {
       newIndex,
     };
 
-    // 提交 DOM 变更
-    if (committed) {
+    if (this.committed) {
       const node = from.takeNode(this);
       to.dropNode(this, node);
 
@@ -127,21 +175,37 @@ export class DragSession {
         to.triggerEvent("onAdd", evt);
       }
     }
-
     from.triggerEvent("onEnd", evt);
 
-    // 根据当前在哪个容器，哪个容器先endDrag
-    const order = [];
-
-    if (this.activeContainer) order.push(this.activeContainer);
-    if (from && !order.includes(from)) order.push(from);
-
-    for (const c of order) {
-      await c.endDrag(this);
+    // 拖拽结束，如果当前仍有 activeContainer，触发一次离开
+    if (this.activeContainer) {
+      this.activeContainer.releaseDrag(this);
+      await fireAndAwait(
+        this.manager.hooks,
+        HookNames.onContainerLeave,
+        this._ctx({ container: this.activeContainer }),
+      );
     }
 
-    this.ghost.unmount();
-    this.ghost = null;
+    // onSessionEnd：DOM 已提交、容器已清理
+    await fireAndAwait(this.manager.hooks, HookNames.onSessionEnd, this._ctx());
+
+    // 容器收尾，end所有容器，当前activeContainer优先
+    const order = [];
+    if (this.activeContainer) {
+      order.push(this.activeContainer);
+    }
+    if (from && !order.includes(from)) {
+      order.push(from);
+    }
+    for (const c of order) c.endDrag(this);
+
+    // onSessionCleanup
+    await fireAndAwait(
+      this.manager.hooks,
+      HookNames.onSessionCleanup,
+      this._ctx(),
+    );
   }
 
   _shouldCommitDomChange(target, newIndex, oldIndex, from, to) {
@@ -153,11 +217,28 @@ export class DragSession {
 
   // ==================== 容器解析 ====================
   _resolveActiveContainer() {
-    const hovered =
-      dragManager.containers.find((c) =>
+    return (
+      this.manager.containers.find((c) =>
         c.containsPoint(this.pointer.x, this.pointer.y),
-      ) ?? null;
+      ) ?? null
+    );
+  }
 
-    return hovered;
+  /**
+   * 构造插件钩子用的 ctx。
+   */
+  _ctx(extra) {
+    return {
+      session: this,
+      sourceContainer: this.sourceContainer,
+      activeContainer: this.activeContainer,
+      draggedItem: this.draggedItem,
+      initialIndex: this.initialIndex,
+      insertIndex: this.insertIndex,
+      ghost: this.ghost,
+      pointer: this.pointer,
+      committed: this.committed,
+      ...extra,
+    };
   }
 }

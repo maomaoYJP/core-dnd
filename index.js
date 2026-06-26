@@ -1,3 +1,4 @@
-import { DragContainer } from "./core/dragContainer.js";
+import { DragManager } from "./core/dragManager.js";
+import { ghostPlugin } from "./plugins/ghostPlugin.js";
 
-export { DragContainer };
+export { DragManager, ghostPlugin };

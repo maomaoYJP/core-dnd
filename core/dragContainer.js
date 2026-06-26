@@ -1,20 +1,15 @@
-import { dragManager } from "./dragManager.js";
 import { Axis } from "./axis.js";
-import { Hooks } from "./hooks.js";
 import { CSS } from "../constant.js";
-import { HooksEnum } from "./hooks.js";
 
 /**
  * DragContainer：对应容器内部核心操作。
  *
  * 职责（最小核心）：
- *   1. 保存配置（包含 axis、plugins、用户回调）
+ *   1. 保存配置（包含 axis、用户回调 options）
  *   2. 维护 rect 缓存（container + items）
- *   3. 提交 DOM 变更（takeNode / dropNode）
- *   4. 响应 session 生命周期，并广播给插件
- *   5. 触发用户回调
- *
- * 容器本身不持有任何"本次会话"的状态——所有会话态由 DragSession 持有并显式传入。
+ *   3. 几何 / 命中查询（containsPoint、findItemIndex、findInsertIndex）
+ *   4. DOM 提交（takeNode / dropNode）
+ *   5. 暴露 triggerEvent 给 session 转发用户回调（onStart / onMove / onEnd / onAdd / onRemove）
  */
 export class DragContainer {
   constructor(containerElement, options = {}) {
@@ -22,18 +17,12 @@ export class DragContainer {
     this.containerEl = containerElement;
     this.axis = new Axis(options.axis || "vertical");
 
-    // 钩子总线：注册所有插件
-    this.hooks = new Hooks();
-    (options.plugins || []).forEach((p) => this.hooks.register(p));
-
     // rect 缓存
     this.container = { element: containerElement, rect: null };
     this.items = []; // [{ element, rect }]
 
     this._initStructure();
     this.refreshRects();
-
-    dragManager.registerContainer(this);
   }
 
   // =================== 读 ====================
@@ -63,6 +52,24 @@ export class DragContainer {
     }
     this.containerEl.innerHTML = "";
     this.containerEl.appendChild(frg);
+  }
+
+  // 还原 DOM
+  destroy() {
+    this.containerEl.classList.remove(
+      CSS.dragContainer,
+      CSS.horizontal,
+      CSS.vertical,
+    );
+    const wrappers = Array.from(
+      this.containerEl.querySelectorAll(`.${CSS.dragDraggableWrapper}`),
+    );
+    for (const wrapper of wrappers) {
+      const child = wrapper.firstElementChild;
+      if (child) this.containerEl.insertBefore(child, wrapper);
+      wrapper.remove();
+    }
+    this.items = [];
   }
 
   // ==================== rect 维护 ====================
@@ -113,12 +120,10 @@ export class DragContainer {
     if (session.sourceContainer === this) {
       session.draggedItem.element.style.visibility = "hidden";
     }
-
-    this.hooks.fire(HooksEnum.onSessionStart, this._ctx(session));
   }
 
   /**
-   * 每帧调用：根据 ghost 当前 rect 算落点，写回 session.insertIndex 并返回。
+   * 每帧调用：根据 ghost 当前 rect 算落点
    */
   updateDrag(session) {
     const ghostRect = session.ghost.rect;
@@ -141,37 +146,21 @@ export class DragContainer {
       willInsertAfter = false;
     }
 
-    const accepted = this.triggerEvent("onMove", {
-      item: session.draggedItem.element,
-      from: session.sourceContainer.containerEl,
-      to: this.containerEl,
-      related,
-      willInsertAfter,
-    });
-
-    // null = onMove 拒绝（无有效目标位置）；其余 = items 坐标的目标位置
-    session.insertIndex = accepted === false ? null : rawIndex;
-    this.hooks.fire(HooksEnum.onSessionMove, this._ctx(session));
-    return session.insertIndex;
+    return { rawIndex, related, willInsertAfter };
   }
 
   /**
    * 离开本容器（切换到别的容器之前调用）。
    */
   releaseDrag(session) {
-    this.hooks.fire(HooksEnum.onSessionLeave, this._ctx(session));
     session.insertIndex = null;
   }
 
   /**
-   * 整次会话彻底结束
+   * 结束拖拽：源容器恢复 dragged 可见，刷新 rect。
+   * 由 session 在所有 hook 都跑完之后调用，纯 DOM 操作不发 hook。
    */
-  async endDrag(session) {
-    // 同步的end回调
-    this.hooks.fire(HooksEnum.onSessionEnd, this._ctx(session));
-    // 异步收尾：插件 onSessionEndAsync 收集 Promise， await 后再继续收尾
-    await this.hooks.fireAsync(HooksEnum.onSessionEndAsync, this._ctx(session));
-
+  endDrag(session) {
     // 源容器：恢复 dragged 可见
     if (session.sourceContainer === this && session.draggedItem) {
       session.draggedItem.element.style.visibility = "visible";
@@ -197,23 +186,5 @@ export class DragContainer {
         visibleItems[session.insertIndex].element,
       );
     }
-  }
-
-  // ==================== 给插件的上下文 ====================
-  // ctx 的形状保持向后兼容；所有会话态都从 session 上读
-  _ctx(session) {
-    const isSource = session.sourceContainer === this;
-    return {
-      container: this,
-      axis: this.axis,
-      items: this.items,
-      draggedItem: session.draggedItem,
-      initialIndex: isSource ? session.initialIndex : null,
-      insertIndex: session.insertIndex,
-      sourceContainer: session.sourceContainer,
-      activeContainer: session.activeContainer,
-      ghost: session.ghost,
-      options: this.options,
-    };
   }
 }

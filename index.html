@@ -8,7 +8,7 @@
   <style>
     .container {
       width: 600px;
-      height: 600px;
+      height: 300px;
       margin: 20px auto;
       overflow: auto;
       padding: 8px;
@@ -101,14 +101,16 @@
     </div>
   </body>
   <script type="module">
-    import { DragContainer } from "./index.js";
-    import { ghostStylePlugin } from "./plugins/ghostStylePlugin.js";
-    import { reflowPlugin } from "./plugins/reflowPlugin.js";
-    import { previewPlugin } from "./plugins/previewPlugin.js";
+    import { DragManager } from "./index.js";
 
-    // 容器 1：空插件，核心最小模式
-    new DragContainer(document.querySelector("#container"), {
-      plugins: [ghostStylePlugin(), reflowPlugin(), previewPlugin()],
+    const container = document.querySelector("#container");
+    const container2 = document.querySelector("#container2");
+    const hcontainer = document.querySelector("#hcontainer");
+
+    const manager = new DragManager();
+
+    // 容器 1：核心最小模式
+    manager.mount(container, {
       onStart: (e) => console.log("start", e),
       onMove: (e) => {
         // console.log("move", e);
@@ -119,8 +121,7 @@
     });
 
     // 容器 2
-    new DragContainer(document.querySelector("#container2"), {
-      plugins: [ghostStylePlugin(), reflowPlugin()],
+    manager.mount(container2, {
       onStart: (e) => console.log("start", e),
       onEnd: (e) => console.log("end", e),
       onAdd: (e) => console.log("add", e),
@@ -128,9 +129,8 @@
     });
 
     // 容器 3：横向
-    new DragContainer(document.querySelector("#hcontainer"), {
+    manager.mount(hcontainer, {
       axis: "horizontal",
-      plugins: [ghostStylePlugin(), reflowPlugin(), previewPlugin()],
       onStart: (e) => console.log("start", e),
       onEnd: (e) => console.log("end", e),
     });
