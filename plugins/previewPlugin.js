@@ -1,7 +1,8 @@
 /**
- * 每个容器的 plugin 实例各自管理自己的 previewEl。
- * 源容器：previewEl 整个会话期间持续存在，离开时回到被拖元素原位置。
- * 非源容器：进入时创建，离开时移除。
+ * 单例 previewEl 跟随 activeContainer：
+ *   - 进入容器：创建（或将来 reparent）到当前容器；源容器初始放在被拖元素原位
+ *   - 离开容器：无论从源还是非源，都 reparent 回源容器、对齐被拖元素原位
+ *     —— 拖到任何容器外时，preview 都"回家"
  */
 export function previewPlugin({
   className = "drag-preview",
@@ -11,8 +12,6 @@ export function previewPlugin({
   let previewEl = null;
   let lastKey = null;
 
-  const isSource = (ctx) => ctx.sourceContainer === ctx.container;
-
   const createPreviewEl = (ctx) => {
     previewEl = document.createElement("div");
     previewEl.classList.add(className);
@@ -21,8 +20,6 @@ export function previewPlugin({
     const containerRect = ctx.container.container.rect;
 
     // 初始化位置
-    // 源容器：initIndex 位置
-    // 非源容器：一开始进入的时候insertIndex为null，先创建隐藏，等update时再移动
     previewEl.style.position = "absolute";
     previewEl.style.pointerEvents = "none";
     previewEl.style.transition = "none";
@@ -30,7 +27,7 @@ export function previewPlugin({
     previewEl.style.width = `${draggedItem.rect.width}px`;
     previewEl.style.height = `${draggedItem.rect.height}px`;
 
-    if (isSource(ctx)) {
+    if (ctx.container.isSource(ctx.sourceContainer)) {
       const initTop = draggedItem.rect.top - containerRect.top;
       const initLeft = draggedItem.rect.left - containerRect.left;
       previewEl.style.top = `${initTop}px`;
@@ -53,15 +50,16 @@ export function previewPlugin({
 
     const insertIndex = ctx.insertIndex;
     const initialIndex = ctx.initialIndex;
-    const items = ctx.items;
-    const container = ctx.container.container;
     const axis = ctx.axis;
+
+    const items = ctx.activeContainer.items;
+    const container = ctx.activeContainer.container;
     const gap = parseFloat(getComputedStyle(container.element).gap || 0);
 
     let distance = 0;
 
     // 非源容器
-    if (initialIndex == null) {
+    if (!ctx.activeContainer.isSource(ctx.sourceContainer)) {
       if (items.length === 0) {
         distance = 0;
       } else if (insertIndex >= items.length) {
@@ -107,37 +105,49 @@ export function previewPlugin({
   return {
     name: "preview",
 
-    onSessionStart(ctx) {
-      lastKey = null;
-
-      if (!previewEl) {
-        createPreviewEl(ctx);
-      }
-    },
-
-    onSessionMove(ctx) {
+    onSessionFrame(ctx) {
       const key = `${ctx.initialIndex}:${ctx.insertIndex}`;
       if (key === lastKey) return;
       lastKey = key;
       updatePreviewEl(ctx);
     },
 
-    onSessionLeave(ctx) {
+    // 进入容器时，创建previewEl
+    onContainerEnter(ctx) {
       lastKey = null;
-
-      if (isSource(ctx)) {
-        // 源容器：离开时回到被拖元素原位置
-        const draggedItem = ctx.draggedItem;
-        const containerRect = ctx.container.container.rect;
-        const initTop = draggedItem.rect.top - containerRect.top;
-        const initLeft = draggedItem.rect.left - containerRect.left;
-        previewEl.style.top = `${initTop}px`;
-        previewEl.style.left = `${initLeft}px`;
-      } else {
-        // 非源容器：离开时移除
-        previewEl?.remove();
+      if (previewEl) {
+        previewEl.remove();
         previewEl = null;
       }
+      createPreviewEl(ctx);
+    },
+
+    // 离开任意容器：preview 一律"回家" —— 搬回源容器、对齐被拖元素原位置。
+    onContainerLeave(ctx) {
+      lastKey = null;
+      if (!previewEl) return;
+
+      if (ctx.committed) {
+        // 如果是 commit 离开，说明拖动结束了，直接移除 previewEl
+        previewEl.remove();
+        previewEl = null;
+        return;
+      }
+
+      const sourceContainer = ctx.sourceContainer;
+      const sourceContainerEl = sourceContainer.containerEl;
+      const sourceRect = sourceContainer.container.rect;
+      const draggedItem = ctx.draggedItem;
+      const homeTop = draggedItem.rect.top - sourceRect.top;
+      const homeLeft = draggedItem.rect.left - sourceRect.left;
+
+      // 若 previewEl 当前不在源容器里，离开的时候搬回源容器
+      if (previewEl.parentNode !== sourceContainerEl) {
+        sourceContainerEl.appendChild(previewEl);
+      }
+
+      previewEl.style.top = `${homeTop}px`;
+      previewEl.style.left = `${homeLeft}px`;
     },
 
     onSessionEnd(ctx) {

@@ -34,6 +34,10 @@ export class DragContainer {
       : this.items;
   }
 
+  isSource(container) {
+    return container === this;
+  }
+
   // ==================== 初始化 ====================
   _initStructure() {
     this.containerEl.classList.add(CSS.dragContainer);
@@ -117,7 +121,7 @@ export class DragContainer {
     this.refreshRects();
 
     // 源容器：隐藏被拖元素
-    if (session.sourceContainer === this) {
+    if (this.isSource(session.sourceContainer)) {
       session.draggedItem.element.style.visibility = "hidden";
     }
   }
@@ -162,7 +166,7 @@ export class DragContainer {
    */
   endDrag(session) {
     // 源容器：恢复 dragged 可见
-    if (session.sourceContainer === this && session.draggedItem) {
+    if (this.isSource(session.sourceContainer) && session.draggedItem) {
       session.draggedItem.element.style.visibility = "visible";
     }
 
