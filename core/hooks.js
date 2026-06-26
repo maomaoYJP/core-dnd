@@ -6,18 +6,73 @@
  */
 
 // 定义hooks名称枚举
-export const HooksEnum = {
-  // 开始拖拽之前触发，在acceptDrag后
+export const HookNames = {
+  onBeforeSessionStart: "onBeforeSessionStart",
   onSessionStart: "onSessionStart",
-  // 拖拽过程中触发，在updateDrag后
+  onContainerEnter: "onContainerEnter",
   onSessionMove: "onSessionMove",
-  // 离开本容器，在releaseDrag之前
-  onSessionLeave: "onSessionLeave",
-  // 整次会话彻底结束，在endDrag之前
+  onContainerLeave: "onContainerLeave",
+  onBeforeSessionEnd: "onBeforeSessionEnd",
   onSessionEnd: "onSessionEnd",
-  // 跨容器场景，会执行两次
-  onSessionEndAsync: "onSessionEndAsync",
+  onSessionCleanup: "onSessionCleanup",
 };
+export class HookBus {
+  constructor() {
+    this.map = {};
+  }
+  register(plugin) {
+    if (!plugin) return;
+    for (const key of Object.keys(plugin)) {
+      if (!HookNames[key]) {
+        console.warn(
+          `[any-drag] plugin ${plugin.name || "unknown"} has unknown hook ${key}`,
+        );
+        continue;
+      }
+
+      if (!this.map[key]) {
+        this.map[key] = [];
+      }
+      this.map[key].push(plugin[key]);
+    }
+  }
+
+  // 统一返回 Promise
+  async fire(name, ctx) {
+    const handlers = this.map[name];
+    if (!handlers || handlers.length === 0) return;
+
+    const snapshot = [...handlers];
+
+    // 我们这里改为串行执行
+    for (const handle of snapshot) {
+      // 执行前检查取消状态，前面的插件可以打断后续插件
+      if (ctx?._cancelled) break;
+
+      let result;
+      try {
+        result = handle(ctx);
+      } catch (err) {
+        console.error(`[any-drag] hook ${name} threw`, err);
+        continue;
+      }
+
+      // 如果返回是异步结果，等待他完成，保证插件的执行顺序
+      if (result && typeof result.then === "function") {
+        try {
+          await result;
+        } catch (err) {
+          console.error(`[any-drag] async hook ${name} rejected`, err);
+        }
+      }
+    }
+  }
+}
+
+export async function fireAndAwait(bus, name, ctx) {
+  const result = bus.fire(name, ctx);
+  if (result) await result;
+}
 
 export class Hooks {
   constructor() {
