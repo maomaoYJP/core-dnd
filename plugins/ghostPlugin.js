@@ -53,7 +53,7 @@ export function ghostPlugin(options = {}) {
       });
     },
 
-    onSessionFrame(ctx) {
+    onBeforeSessionFrame(ctx) {
       ctx.ghost?.syncToPointer(ctx.pointer);
     },
 

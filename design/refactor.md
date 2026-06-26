@@ -135,9 +135,7 @@ onContainerLeave
 现在的使用方法是
 
 ```javascript
-const manager = new DragManager()
-  .use(previewPlugin())
-  .use(reflowPlugin());
+const manager = new DragManager().use(previewPlugin()).use(reflowPlugin());
 
 manager.mount(document.getElementById("listA"), {
   axis: "vertical",
@@ -153,3 +151,19 @@ DragManager ← 应用层"工作台"，可有多个
 ├─ hooks ← 插件注册中心
 ├─ containers ← 这个工作台管理的 DOM 容器
 └─ session ← 当前活动的拖拽（最多一个）
+
+## 实现reflowPlugin
+
+功能：
+
+1. 拖拽过程中，其他元素让位，产生过渡动画
+2. 拖拽结束后，拖拽元素回到目标位置，产生过渡动画
+
+实现：
+
+需要的钩子：
+
+- onSessionFrame
+- onContainerEnter
+- onSessionLeave
+- onSessionEnd

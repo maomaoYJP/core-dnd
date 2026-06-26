@@ -232,6 +232,7 @@ export class DragSession {
       session: this,
       sourceContainer: this.sourceContainer,
       activeContainer: this.activeContainer,
+      axis: this.sourceContainer.axis,
       draggedItem: this.draggedItem,
       initialIndex: this.initialIndex,
       insertIndex: this.insertIndex,

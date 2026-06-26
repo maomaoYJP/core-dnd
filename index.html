@@ -101,14 +101,14 @@
     </div>
   </body>
   <script type="module">
-    import { DragManager } from "./index.js";
+    import { DragManager, reflowPlugin } from "./index.js";
 
     const container = document.querySelector("#container");
     const container2 = document.querySelector("#container2");
     const hcontainer = document.querySelector("#hcontainer");
 
     const manager = new DragManager();
-
+    manager.use(reflowPlugin());
     // 容器 1：核心最小模式
     manager.mount(container, {
       onStart: (e) => console.log("start", e),

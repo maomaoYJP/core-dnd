@@ -7,8 +7,11 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
   let lastKey = null;
 
   const apply = (ctx) => {
-    const { items, initialIndex, insertIndex, axis, container, draggedItem } =
-      ctx;
+    const { initialIndex, insertIndex, axis, draggedItem } = ctx;
+    const sourceContainer = ctx.sourceContainer;
+    const activeContainer = ctx.activeContainer;
+    const container = activeContainer ?? sourceContainer;
+    const items = container.items;
 
     // 计算需要移动的step，如果 initialIndex < insertIndex，说明dragged元素向后移动
     // 所有在initialIndex和insertIndex之间的元素都需要向前移动一位。
@@ -19,7 +22,7 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     const step = axis.sizeOf(draggedItem.rect) + gap;
 
     // 如果是在源容器中拖动
-    if (ctx.sourceContainer === ctx.container) {
+    if (sourceContainer === activeContainer) {
       items.forEach((item, index) => {
         if (index === initialIndex) {
           item.element.style.transform = "";
@@ -39,7 +42,7 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     }
 
     // 如果是跨容器拖动
-    if (ctx.sourceContainer !== ctx.container) {
+    if (sourceContainer !== activeContainer) {
       items.forEach((item, i) => {
         const distance = i >= ctx.insertIndex ? step : 0;
         item.element.style.transform = axis.translate(distance);
@@ -81,31 +84,35 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
 
   return {
     name: "reflow",
-    onSessionStart(ctx) {
-      setTransitions(ctx.items, `transform ${duration}ms ${easing}`);
-      lastKey = null;
-    },
-    onSessionMove(ctx) {
+
+    onSessionFrame(ctx) {
       const key = `${ctx.initialIndex}:${ctx.insertIndex}`;
-      if (key === lastKey) return;
+      if (key === lastKey || ctx.insertIndex === null) return;
       lastKey = key;
       apply(ctx);
     },
-    onSessionLeave(ctx) {
-      lastKey = null;
-      ctx.items.forEach((it) => (it.element.style.transform = ""));
-    },
-    onSessionEndAsync(ctx) {
-      lastKey = null;
-      ctx.items.forEach((it) => {
-        it.element.style.transition = "";
-        it.element.style.transform = "";
-      });
 
-      // ghost 动画只由源容器负责
-      if (ctx.sourceContainer !== ctx.container) {
-        return;
+    onContainerEnter(ctx) {
+      setTransitions(ctx.container.items, `transform ${duration}ms ${easing}`);
+      lastKey = null;
+    },
+    onContainerLeave(ctx) {
+      lastKey = null;
+      if (ctx.committed) {
+        ctx.container.items.forEach((it) => {
+          it.element.style.transition = "";
+          it.element.style.transform = "";
+        });
+      } else {
+        ctx.container.items.forEach((it) => {
+          it.element.style.transform = "";
+        });
       }
+    },
+
+    onSessionEnd(ctx) {
+      lastKey = null;
+
       const promise = animateDrop(ctx);
       return promise;
     },
