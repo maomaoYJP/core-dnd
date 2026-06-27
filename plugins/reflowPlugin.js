@@ -5,6 +5,22 @@
  */
 export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
   let lastKey = null;
+  let placeholder = null;
+
+  const createPlaceholder = (ctx) => {
+    placeholder = document.createElement("div");
+    placeholder.className = "drag-draggable-wrapper";
+    placeholder.style.width = `${ctx.draggedItem.rect.width}px`;
+    placeholder.style.height = `${ctx.draggedItem.rect.height}px`;
+    ctx.activeContainer.container.element.appendChild(placeholder);
+  };
+
+  const removePlaceholder = () => {
+    if (placeholder) {
+      placeholder.remove();
+      placeholder = null;
+    }
+  };
 
   const apply = (ctx) => {
     const { initialIndex, insertIndex, axis, draggedItem } = ctx;
@@ -43,6 +59,11 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
 
     // 如果是跨容器拖动
     if (sourceContainer !== activeContainer) {
+      // 给容器加一个人空白的占位元素，大小和拖拽元素一样，放在目标容器的最后一个元素下方
+      if (!placeholder) {
+        createPlaceholder(ctx);
+      }
+
       items.forEach((item, i) => {
         const distance = i >= ctx.insertIndex ? step : 0;
         item.element.style.transform = axis.translate(distance);
