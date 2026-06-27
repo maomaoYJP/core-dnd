@@ -26,7 +26,6 @@ export class DragSession {
     this.sourceContainer = sourceContainer;
     this.initialIndex = initialIndex;
     this.pointerEvent = pointerEvent;
-    this.draggedItem = sourceContainer.items[initialIndex];
 
     // 可变状态
     this.activeContainer = sourceContainer;
@@ -39,6 +38,10 @@ export class DragSession {
 
     // rAF 句柄
     this.rafId = null;
+  }
+
+  get draggedItem() {
+    return this.sourceContainer.items[this.initialIndex];
   }
 
   // ==================== 启动 ====================

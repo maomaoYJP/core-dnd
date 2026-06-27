@@ -17,7 +17,14 @@ export function previewPlugin({
     previewEl.classList.add(className);
 
     const draggedItem = ctx.draggedItem;
-    const containerRect = ctx.container.container.rect;
+    const axis = ctx.axis;
+    const container = ctx.container.container;
+    const scrollOffset = axis.getScroll(container.element);
+
+    const start =
+      axis.startOf(draggedItem.rect) -
+      axis.startOf(container.rect) +
+      scrollOffset;
 
     // 初始化位置
     previewEl.style.position = "absolute";
@@ -28,10 +35,7 @@ export function previewPlugin({
     previewEl.style.height = `${draggedItem.rect.height}px`;
 
     if (ctx.container.isSource(ctx.sourceContainer)) {
-      const initTop = draggedItem.rect.top - containerRect.top;
-      const initLeft = draggedItem.rect.left - containerRect.left;
-      previewEl.style.top = `${initTop}px`;
-      previewEl.style.left = `${initLeft}px`;
+      previewEl.style[axis.keys.start] = `${start}px`;
     }
 
     ctx.container.containerEl.appendChild(previewEl);
@@ -55,6 +59,7 @@ export function previewPlugin({
     const items = ctx.activeContainer.items;
     const container = ctx.activeContainer.container;
     const gap = parseFloat(getComputedStyle(container.element).gap || 0);
+    const scrollOffset = axis.getScroll(container.element);
 
     let distance = 0;
 
@@ -64,10 +69,17 @@ export function previewPlugin({
         distance = 0;
       } else if (insertIndex >= items.length) {
         const last = items[items.length - 1];
-        distance = axis.endOf(last.rect) - axis.startOf(container.rect) + gap;
+        distance =
+          axis.endOf(last.rect) -
+          axis.startOf(container.rect) +
+          gap +
+          scrollOffset;
       } else {
         const related = items[insertIndex];
-        distance = axis.startOf(related.rect) - axis.startOf(container.rect);
+        distance =
+          axis.startOf(related.rect) -
+          axis.startOf(container.rect) +
+          scrollOffset;
       }
     } else {
       // 源容器：items 包含被拖元素（隐藏），需要在两侧分别处理
@@ -82,20 +94,24 @@ export function previewPlugin({
             axis.startOf(relatedItem.rect) -
             axis.startOf(container.rect) -
             draggedItemSize -
-            gap;
+            gap +
+            scrollOffset;
         } else {
           // 拖到末尾：以最后一个元素为基准
           const lastItem = items[items.length - 1];
           distance =
             axis.endOf(lastItem.rect) -
             axis.startOf(container.rect) -
-            draggedItemSize;
+            draggedItemSize +
+            scrollOffset;
         }
       } else {
         // 从下往上拖：以 insertIndex 元素为基准
         const relatedItem = items[insertIndex];
         distance =
-          axis.startOf(relatedItem.rect) - axis.startOf(container.rect);
+          axis.startOf(relatedItem.rect) -
+          axis.startOf(container.rect) +
+          scrollOffset;
       }
     }
 
@@ -138,16 +154,20 @@ export function previewPlugin({
       const sourceContainerEl = sourceContainer.containerEl;
       const sourceRect = sourceContainer.container.rect;
       const draggedItem = ctx.draggedItem;
-      const homeTop = draggedItem.rect.top - sourceRect.top;
-      const homeLeft = draggedItem.rect.left - sourceRect.left;
+      const axis = ctx.axis;
+      const scrollOffset = axis.getScroll(sourceContainer.containerEl);
+
+      const homeStart =
+        axis.startOf(draggedItem.rect) -
+        axis.startOf(sourceRect) +
+        scrollOffset;
 
       // 若 previewEl 当前不在源容器里，离开的时候搬回源容器
       if (previewEl.parentNode !== sourceContainerEl) {
         sourceContainerEl.appendChild(previewEl);
       }
 
-      previewEl.style.top = `${homeTop}px`;
-      previewEl.style.left = `${homeLeft}px`;
+      previewEl.style[axis.keys.start] = `${homeStart}px`;
     },
 
     onSessionEnd(ctx) {

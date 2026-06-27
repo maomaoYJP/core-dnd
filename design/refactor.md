@@ -12,10 +12,11 @@
 
   /plugins
     reflowPlugin.js     reflow 让位 + ghost 飞行
-    preview.js          ★ preview 元素生命周期
-    group.js            ★ pull/put 规则
-    handle.js           ★ 把手 / filter
-    autoScroll.js       ★ 自动滚动
+    previewPlugin.js    preview 元素生命周期
+    autoScroll.js       自动滚动
+    group.js            pull/put 规则
+    handle.js           把手 / filter
+
 
   index.js              导出 DragContainer + 内置插件
   constant.js
@@ -167,3 +168,24 @@ DragManager ← 应用层"工作台"，可有多个
 - onContainerEnter
 - onSessionLeave
 - onSessionEnd
+
+## 实现autoScrollPlugin
+
+功能：
+拖动到容器边缘时，自动滚动容器。
+
+需要的钩子：
+
+- onSessionFrame
+
+实现：
+现在计算出来应该移动的距离，然后追加到容器中，但是有问题
+
+因为之前的reflow和preview以来缓存的rect，这样滚动了之后，缓存的rect就不对了，导致计算出来的insertIndex不对，需要手动修改。影响的范围是
+
+1. findInsertIndex
+   在滚动之后手动更新了items的缓存，可以解决
+2. reflowPlugin
+   在滚动之后手动更新了items的缓存，可以解决
+3. previewPlugin
+   在滚动之后手动更新了items的缓存，然后还需要考虑滚动的影响

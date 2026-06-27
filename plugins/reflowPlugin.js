@@ -129,6 +129,8 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
           it.element.style.transform = "";
         });
       }
+
+      removePlaceholder();
     },
 
     onSessionEnd(ctx) {

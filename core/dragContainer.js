@@ -77,17 +77,26 @@ export class DragContainer {
   }
 
   // ==================== rect 维护 ====================
+  // 原地更新 rect 缓存，避免频繁创建新对象。
   refreshRects() {
-    this.container = {
-      element: this.containerEl,
-      rect: this._readRect(this.containerEl.getBoundingClientRect()),
-    };
-    this.items = Array.from(
+    this.container.rect = this._readRect(
+      this.containerEl.getBoundingClientRect(),
+    );
+
+    const elements = Array.from(
       this.containerEl.querySelectorAll(`.${CSS.dragDraggableWrapper}`),
-    ).map((element) => ({
-      element,
-      rect: this._readRect(element.getBoundingClientRect()),
-    }));
+    );
+    const byElement = new Map(this.items.map((it) => [it.element, it]));
+
+    this.items = elements.map((element) => {
+      const rect = this._readRect(element.getBoundingClientRect());
+      const existing = byElement.get(element);
+      if (existing) {
+        existing.rect = rect;
+        return existing;
+      }
+      return { element, rect };
+    });
   }
 
   _readRect(r) {

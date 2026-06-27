@@ -101,7 +101,12 @@
     </div>
   </body>
   <script type="module">
-    import { DragManager, reflowPlugin, previewPlugin } from "./index.js";
+    import {
+      DragManager,
+      reflowPlugin,
+      previewPlugin,
+      autoScrollPlugin,
+    } from "./index.js";
 
     const container = document.querySelector("#container");
     const container2 = document.querySelector("#container2");
@@ -110,6 +115,7 @@
     const manager = new DragManager();
     manager.use(reflowPlugin());
     manager.use(previewPlugin());
+    manager.use(autoScrollPlugin());
     // 容器 1：核心最小模式
     manager.mount(container, {
       onStart: (e) => console.log("start", e),
