@@ -15,7 +15,7 @@
     previewPlugin.js    preview 元素生命周期
     autoScroll.js       自动滚动
     group.js            pull/put 规则
-    handle.js           把手 / filter
+    handlePlugin.js           把手 / filter
 
 
   index.js              导出 DragContainer + 内置插件
@@ -189,3 +189,7 @@ DragManager ← 应用层"工作台"，可有多个
    在滚动之后手动更新了items的缓存，可以解决
 3. previewPlugin
    在滚动之后手动更新了items的缓存，然后还需要考虑滚动的影响
+
+## 思考
+
+现在搞成插件式的，但是问题很多。整个结构设计不是很合理，导致实现一些功能的麻烦，并且钩子设计也不完善，有时候为了实现某个功能还得加入新钩子，非常不合理
