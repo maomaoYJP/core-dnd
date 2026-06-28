@@ -21,12 +21,14 @@ export class DragManager {
 
     // 默认注册的插件；用户可调用 use() 追加替换
     // userCallbacks 必须在其它读 insertIndex 的插件之前注册，
+    // reflow 的 onSessionEnd 需要早于 ghost：先同步清空 items 的 transform，
+    // 再让 ghost 的 drop 飞行动画在干净的布局上播。
     this.hooks.register(Plugins.userCallbacksPlugin());
-    this.hooks.register(Plugins.ghostPlugin());
     this.hooks.register(Plugins.groupPlugin());
     this.hooks.register(Plugins.handlePlugin());
     this.hooks.register(Plugins.previewPlugin());
     this.hooks.register(Plugins.reflowPlugin());
+    this.hooks.register(Plugins.ghostPlugin());
     this.hooks.register(Plugins.autoScrollPlugin());
 
     this._onMouseDown = this._onMouseDown.bind(this);

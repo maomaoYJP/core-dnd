@@ -37,8 +37,9 @@ export class DragSession {
     // userCallbacksPlugin使用的变量
     this.related = null;
     this.willInsertAfter = false;
-    // ghostPlugin使用的变量
-    this.ghost = null; // 由 ghostPlugin 在 onBeforeSessionStart 中创建并赋值
+
+    // ghostPlugin进行初始化，结构{ element, rect }
+    this.ghost = null;
 
     // 最新指针位置
     this.pointer = { x: pointerEvent.clientX, y: pointerEvent.clientY };
