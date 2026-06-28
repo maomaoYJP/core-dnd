@@ -2,7 +2,7 @@ import { mountStylesToHead } from "../style.js";
 import { DragSession } from "./session.js";
 import { DragContainer } from "./dragContainer.js";
 import { HookBus, HookNames, fireAndAwait } from "./hooks.js";
-import { ghostPlugin } from "../plugins/ghostPlugin.js";
+import Plugins from "../plugins/index.js";
 import { userCallbacksPlugin } from "../plugins/userCallbacksPlugin.js";
 
 /**
@@ -21,8 +21,13 @@ export class DragManager {
 
     // 默认注册的插件；用户可调用 use() 追加替换
     // userCallbacks 必须在其它读 insertIndex 的插件之前注册，
-    this.hooks.register(userCallbacksPlugin());
-    this.hooks.register(ghostPlugin());
+    this.hooks.register(Plugins.userCallbacksPlugin());
+    this.hooks.register(Plugins.ghostPlugin());
+    this.hooks.register(Plugins.groupPlugin());
+    this.hooks.register(Plugins.handlePlugin());
+    this.hooks.register(Plugins.previewPlugin());
+    this.hooks.register(Plugins.reflowPlugin());
+    this.hooks.register(Plugins.autoScrollPlugin());
 
     this._onMouseDown = this._onMouseDown.bind(this);
     this._onMouseMove = this._onMouseMove.bind(this);

@@ -101,28 +101,22 @@
     </div>
   </body>
   <script type="module">
-    import {
-      DragManager,
-      reflowPlugin,
-      previewPlugin,
-      autoScrollPlugin,
-      handlePlugin,
-      groupPlugin,
-    } from "./index.js";
+    import { DragManager, Plugins } from "./index.js";
 
     const container = document.querySelector("#container");
     const container2 = document.querySelector("#container2");
     const hcontainer = document.querySelector("#hcontainer");
 
     const manager = new DragManager();
-    manager.use(reflowPlugin());
-    manager.use(previewPlugin());
-    manager.use(groupPlugin());
-    manager.use(handlePlugin());
-    manager.use(autoScrollPlugin());
+
     // 容器 1：核心最小模式
     manager.mount(container, {
       group: { name: "list", pull: true, put: true },
+      preview: {
+        className: "drag-preview",
+        duration: 200,
+        easing: "ease-in-out",
+      },
       onStart: (e) => console.log("start", e),
       onMove: (e) => {
         // console.log("move", e);
