@@ -12,6 +12,7 @@ import { fireAndAwait, HookNames } from "./hooks.js";
  *
  *
  * 触发时间线：
+ *   onBeforeSessionCreate →
  *   onBeforeSessionStart → container.acceptDrag →
  *   onContainerEnter → onSessionStart →
  *   rAF:【 onBeforeSessionFrame  → onContainerLeave/Enter →

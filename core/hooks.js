@@ -4,6 +4,7 @@
 
 // 定义hooks名称枚举
 export const HookNames = {
+  onBeforeSessionCreate: "onBeforeSessionCreate",
   onBeforeSessionStart: "onBeforeSessionStart",
   onSessionStart: "onSessionStart",
   onContainerEnter: "onContainerEnter",
