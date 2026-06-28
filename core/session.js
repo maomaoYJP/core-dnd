@@ -86,43 +86,58 @@ export class DragSession {
 
   // ==================== 渲染循环 ====================
   _frame = () => {
-    // onSessionFrame：每帧最先触发
-    this.manager.hooks.fire(HookNames.onBeforeSessionFrame, this._ctx());
+    this.manager.hooks.fireSync(HookNames.onBeforeSessionFrame, this._ctx());
 
-    // 2. 识别当前拖动到的容器，如果切换则发 leave/enter
     const prev = this.activeContainer;
     const next = this._resolveActiveContainer();
+    let containerEnterRejected = false;
 
     if (next !== prev) {
-      // 先更新 activeContainer，让 ctx.activeContainer 反映"转移后"的状态
-      this.activeContainer = next;
+      const draftCtx = this._ctx({
+        container: next,
+        _cancelled: false,
+        preventDefault() {
+          this._cancelled = true;
+        },
+      });
 
-      if (prev) {
-        prev.releaseDrag(this);
-        this.manager.hooks.fire(
-          HookNames.onContainerLeave,
-          this._ctx({ container: prev }),
-        );
-      }
-      if (next) {
-        next.acceptDrag(this);
-        this.manager.hooks.fire(
-          HookNames.onContainerEnter,
-          this._ctx({ container: next }),
-        );
+      // 进入容器前的hook，有可能进入的是空容器
+      this.manager.hooks.fireSync(HookNames.onBeforeContainerEnter, draftCtx);
+
+      if (draftCtx._cancelled) {
+        containerEnterRejected = true;
+        this.insertIndex = null;
+        this.related = null;
+        this.willInsertAfter = false;
+      } else {
+        this.activeContainer = next;
+
+        if (prev) {
+          prev.releaseDrag(this);
+          this.manager.hooks.fireSync(
+            HookNames.onContainerLeave,
+            this._ctx({ container: prev }),
+          );
+        }
+        if (next) {
+          next.acceptDrag(this);
+          this.manager.hooks.fireSync(
+            HookNames.onContainerEnter,
+            this._ctx({ container: next }),
+          );
+        }
       }
     }
 
-    // 3. 更新落点；onMove 用户回调由 userCallbacksPlugin 在 onSessionFrame 中处理，
-    //    若被拒绝则会把 session.insertIndex 置 null
-    if (next) {
+    // 被拒时跳过 updateDrag
+    if (next && !containerEnterRejected) {
       const { rawIndex, related, willInsertAfter } = next.updateDrag(this);
       this.insertIndex = rawIndex;
       this.related = related;
       this.willInsertAfter = willInsertAfter;
     }
 
-    this.manager.hooks.fire(HookNames.onSessionFrame, this._ctx());
+    this.manager.hooks.fireSync(HookNames.onSessionFrame, this._ctx());
 
     this.rafId = requestAnimationFrame(this._frame);
   };
@@ -137,19 +152,19 @@ export class DragSession {
     const from = this.sourceContainer;
     const to = this.activeContainer;
 
+    // onBeforeSessionEnd：DOM 提交前的最后一刻
+    await fireAndAwait(
+      this.manager.hooks,
+      HookNames.onBeforeSessionEnd,
+      this._ctx(),
+    );
+
     this.committed = this._shouldCommitDomChange(
       to,
       this.insertIndex,
       this.initialIndex,
       from,
       to,
-    );
-
-    // onBeforeSessionEnd：DOM 提交前的最后一刻
-    await fireAndAwait(
-      this.manager.hooks,
-      HookNames.onBeforeSessionEnd,
-      this._ctx(),
     );
 
     // 提交 DOM
@@ -161,7 +176,7 @@ export class DragSession {
     // onSessionEnd：DOM 已提交，但容器尚未释放
     await fireAndAwait(this.manager.hooks, HookNames.onSessionEnd, this._ctx());
 
-    // 拖拽结束，如果当前仍有 activeContainer，触发一次离开（会清空 insertIndex）
+    // 拖拽结束，如果当前仍有 activeContainer，触发一次离开
     if (this.activeContainer) {
       this.activeContainer.releaseDrag(this);
       await fireAndAwait(

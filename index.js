@@ -5,6 +5,7 @@ import { previewPlugin } from "./plugins/previewPlugin.js";
 import { autoScrollPlugin } from "./plugins/autoScrollPlugin.js";
 import { userCallbacksPlugin } from "./plugins/userCallbacksPlugin.js";
 import { handlePlugin } from "./plugins/handlePlugin.js";
+import { groupPlugin } from "./plugins/groupPlugin.js";
 
 export {
   DragManager,
@@ -14,4 +15,5 @@ export {
   autoScrollPlugin,
   userCallbacksPlugin,
   handlePlugin,
+  groupPlugin,
 };

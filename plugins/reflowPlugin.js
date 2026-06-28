@@ -129,7 +129,9 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     onSessionEnd(ctx) {
       lastKey = null;
 
-      ctx.activeContainer.items.forEach((it) => {
+      const container = ctx.activeContainer ?? ctx.sourceContainer;
+
+      container.items.forEach((it) => {
         it.element.style.transition = "";
         it.element.style.transform = "";
       });

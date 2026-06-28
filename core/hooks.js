@@ -11,6 +11,7 @@ export const HookNames = {
   onBeforeSessionFrame: "onBeforeSessionFrame",
   onSessionFrame: "onSessionFrame",
   onContainerLeave: "onContainerLeave",
+  onBeforeContainerEnter: "onBeforeContainerEnter",
   onBeforeSessionEnd: "onBeforeSessionEnd",
   onSessionEnd: "onSessionEnd",
   onSessionCleanup: "onSessionCleanup",
@@ -36,7 +37,25 @@ export class HookBus {
     }
   }
 
-  // 统一返回 Promise，同时支持同步和异步
+  /**
+   * 同步 fire：串行执行所有 handler，不 await 异步结果。
+   */
+  fireSync(name, ctx) {
+    const handlers = this.map[name];
+    if (!handlers || handlers.length === 0) return;
+
+    const snapshot = [...handlers];
+    for (const handle of snapshot) {
+      if (ctx?._cancelled) break;
+      try {
+        handle(ctx);
+      } catch (err) {
+        console.error(`[any-drag] hook ${name} threw`, err);
+      }
+    }
+  }
+
+  // 异步fire 统一返回 Promise
   async fire(name, ctx) {
     const handlers = this.map[name];
     if (!handlers || handlers.length === 0) return;

@@ -107,6 +107,7 @@
       previewPlugin,
       autoScrollPlugin,
       handlePlugin,
+      groupPlugin,
     } from "./index.js";
 
     const container = document.querySelector("#container");
@@ -116,10 +117,12 @@
     const manager = new DragManager();
     manager.use(reflowPlugin());
     manager.use(previewPlugin());
-    manager.use(handlePlugin({ handle: ".drag-handle" }));
+    manager.use(groupPlugin());
+    manager.use(handlePlugin());
     manager.use(autoScrollPlugin());
     // 容器 1：核心最小模式
     manager.mount(container, {
+      group: { name: "list", pull: true, put: true },
       onStart: (e) => console.log("start", e),
       onMove: (e) => {
         // console.log("move", e);
@@ -131,6 +134,8 @@
 
     // 容器 2
     manager.mount(container2, {
+      group: { name: "list", pull: true, put: true },
+      handle: ".drag-handle",
       onStart: (e) => console.log("start", e),
       onEnd: (e) => console.log("end", e),
       onAdd: (e) => console.log("add", e),
