@@ -28,6 +28,10 @@ const css = {
     "pointer-events": "none",
     opacity: 1.0,
   },
+  [CSS.dragPreview]: {
+    border: "1px dashed #000",
+    "background-color": "rgba(0, 0, 0, 0.1)",
+  },
 };
 
 function mountStylesToHead() {

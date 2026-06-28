@@ -4,17 +4,27 @@
  *   - 离开容器：无论从源还是非源，都 reparent 回源容器、对齐被拖元素原位
  *     —— 拖到任何容器外时，preview 都"回家"
  */
-export function previewPlugin({
-  className = "drag-preview",
-  duration = 200,
-  easing = "ease-in-out",
-} = {}) {
+
+import { CSS } from "../constant.js";
+
+const defaultOptions = {
+  className: CSS.dragPreview,
+  duration: 200,
+  easing: "ease-in-out",
+};
+
+export function previewPlugin(options = {}) {
   let previewEl = null;
   let lastKey = null;
 
   const createPreviewEl = (ctx) => {
+    const previewOptions = ctx.container.options?.preview || {
+      ...defaultOptions,
+      ...options,
+    };
+
     previewEl = document.createElement("div");
-    previewEl.classList.add(className);
+    previewEl.classList.add(previewOptions.className);
 
     const draggedItem = ctx.draggedItem;
     const axis = ctx.axis;
@@ -43,7 +53,7 @@ export function previewPlugin({
     // 下一帧再启用 transition
     requestAnimationFrame(() => {
       if (previewEl) {
-        previewEl.style.transition = `all ${duration}ms ${easing}`;
+        previewEl.style.transition = `all ${previewOptions.duration}ms ${previewOptions.easing}`;
       }
     });
   };

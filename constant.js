@@ -8,4 +8,5 @@ export const CSS = {
   horizontal: "horizontal",
   dragDraggableWrapper: "drag-draggable-wrapper",
   dragGhost: "drag-ghost",
+  dragPreview: "drag-preview",
 };
