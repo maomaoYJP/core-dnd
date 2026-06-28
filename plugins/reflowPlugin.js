@@ -119,22 +119,20 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     },
     onContainerLeave(ctx) {
       lastKey = null;
-      if (ctx.committed) {
-        ctx.container.items.forEach((it) => {
-          it.element.style.transition = "";
-          it.element.style.transform = "";
-        });
-      } else {
-        ctx.container.items.forEach((it) => {
-          it.element.style.transform = "";
-        });
-      }
-
+      ctx.container.items.forEach((it) => {
+        it.element.style.transition = "";
+        it.element.style.transform = "";
+      });
       removePlaceholder();
     },
 
     onSessionEnd(ctx) {
       lastKey = null;
+
+      ctx.activeContainer.items.forEach((it) => {
+        it.element.style.transition = "";
+        it.element.style.transform = "";
+      });
 
       const promise = animateDrop(ctx);
       return promise;
