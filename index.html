@@ -79,11 +79,11 @@
 
       <!-- 跨容器拖拽 -->
       <div id="container2" class="container" style="flex-shrink: 0">
-        <div class="item1">A</div>
-        <div class="item2">B</div>
-        <div class="item3">C</div>
-        <div class="item3">D</div>
-        <div class="item3">E</div>
+        <div class="item1"><span class="drag-handle"> ≡ </span>A</div>
+        <div class="item2"><span class="drag-handle"> ≡ </span>B</div>
+        <div class="item3"><span class="drag-handle"> ≡ </span>C</div>
+        <div class="item3"><span class="drag-handle"> ≡ </span>D</div>
+        <div class="item3"><span class="drag-handle"> ≡ </span>E</div>
       </div>
 
       <!-- 横向容器 -->
@@ -106,6 +106,7 @@
       reflowPlugin,
       previewPlugin,
       autoScrollPlugin,
+      handlePlugin,
     } from "./index.js";
 
     const container = document.querySelector("#container");
@@ -115,6 +116,7 @@
     const manager = new DragManager();
     manager.use(reflowPlugin());
     manager.use(previewPlugin());
+    manager.use(handlePlugin({ handle: ".drag-handle" }));
     manager.use(autoScrollPlugin());
     // 容器 1：核心最小模式
     manager.mount(container, {

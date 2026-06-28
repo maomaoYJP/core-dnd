@@ -4,6 +4,7 @@ import { reflowPlugin } from "./plugins/reflowPlugin.js";
 import { previewPlugin } from "./plugins/previewPlugin.js";
 import { autoScrollPlugin } from "./plugins/autoScrollPlugin.js";
 import { userCallbacksPlugin } from "./plugins/userCallbacksPlugin.js";
+import { handlePlugin } from "./plugins/handlePlugin.js";
 
 export {
   DragManager,
@@ -12,4 +13,5 @@ export {
   previewPlugin,
   autoScrollPlugin,
   userCallbacksPlugin,
+  handlePlugin,
 };

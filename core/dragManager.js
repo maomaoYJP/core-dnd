@@ -1,7 +1,7 @@
 import { mountStylesToHead } from "../style.js";
 import { DragSession } from "./session.js";
 import { DragContainer } from "./dragContainer.js";
-import { HookBus } from "./hooks.js";
+import { HookBus, HookNames, fireAndAwait } from "./hooks.js";
 import { ghostPlugin } from "../plugins/ghostPlugin.js";
 import { userCallbacksPlugin } from "../plugins/userCallbacksPlugin.js";
 
@@ -66,7 +66,7 @@ export class DragManager {
     this.session = null;
   }
 
-  _onMouseDown(event) {
+  async _onMouseDown(event) {
     // 上一次 session 还没收尾完，忽略本次按下
     if (this.session) return;
 
@@ -77,6 +77,21 @@ export class DragManager {
 
     const itemIndex = container.findItemIndex(event.target);
     if (itemIndex === -1) return;
+
+    // onBeforeSessionCreate 阶段，用户可 preventDefault 阻止 session 创建
+    const draftCtx = {
+      manager: this,
+      sourceContainer: container,
+      draggedItem: container.items[itemIndex],
+      initialIndex: itemIndex,
+      pointerEvent: event,
+      _cancelled: false,
+      preventDefault() {
+        this._cancelled = true;
+      },
+    };
+    await fireAndAwait(this.hooks, HookNames.onBeforeSessionCreate, draftCtx);
+    if (draftCtx._cancelled) return;
 
     this.session = new DragSession({
       manager: this,
