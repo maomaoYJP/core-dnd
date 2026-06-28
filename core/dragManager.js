@@ -3,6 +3,7 @@ import { DragSession } from "./session.js";
 import { DragContainer } from "./dragContainer.js";
 import { HookBus } from "./hooks.js";
 import { ghostPlugin } from "../plugins/ghostPlugin.js";
+import { userCallbacksPlugin } from "../plugins/userCallbacksPlugin.js";
 
 /**
  * DragManager：全局输入路由。
@@ -19,6 +20,8 @@ export class DragManager {
     this.hooks = new HookBus();
 
     // 默认注册的插件；用户可调用 use() 追加替换
+    // userCallbacks 必须在其它读 insertIndex 的插件之前注册，
+    this.hooks.register(userCallbacksPlugin());
     this.hooks.register(ghostPlugin());
 
     this._onMouseDown = this._onMouseDown.bind(this);
