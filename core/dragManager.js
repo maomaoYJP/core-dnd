@@ -130,7 +130,7 @@ export class DragManager {
     try {
       await this.session.end();
     } catch (err) {
-      console.error("[any-drag] session end failed:", err);
+      console.error("[core-dnd] session end failed:", err);
     } finally {
       this.session = null;
     }

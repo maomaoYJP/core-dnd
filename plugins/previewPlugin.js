@@ -18,9 +18,10 @@ export function previewPlugin(options = {}) {
   let lastKey = null;
 
   const createPreviewEl = (ctx) => {
-    const previewOptions = ctx.container.options?.preview || {
+    const previewOptions = {
       ...defaultOptions,
       ...options,
+      ...(ctx.container.options?.preview || {}),
     };
 
     previewEl = document.createElement("div");

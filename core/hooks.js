@@ -25,7 +25,7 @@ export class HookBus {
     for (const key of Object.keys(plugin)) {
       if (!HookNames[key] && key !== "name") {
         console.warn(
-          `[any-drag] plugin ${plugin.name || "unknown"} has unknown hook ${key}`,
+          `[core-dnd] plugin ${plugin.name || "unknown"} has unknown hook ${key}`,
         );
         continue;
       }
@@ -50,7 +50,7 @@ export class HookBus {
       try {
         handle(ctx);
       } catch (err) {
-        console.error(`[any-drag] hook ${name} threw`, err);
+        console.error(`[core-dnd] hook ${name} threw`, err);
       }
     }
   }
@@ -71,7 +71,7 @@ export class HookBus {
       try {
         result = handle(ctx);
       } catch (err) {
-        console.error(`[any-drag] hook ${name} threw`, err);
+        console.error(`[core-dnd] hook ${name} threw`, err);
         continue;
       }
 
@@ -80,7 +80,7 @@ export class HookBus {
         try {
           await result;
         } catch (err) {
-          console.error(`[any-drag] async hook ${name} rejected`, err);
+          console.error(`[core-dnd] async hook ${name} rejected`, err);
         }
       }
     }
