@@ -336,7 +336,3 @@ manager.use(customPlugin);
 - `onBeforeSessionEnd`
 - `onSessionEnd`
 - `onSessionCleanup`
-
-## License
-
-请根据你的项目计划补充许可证，例如 MIT、Apache-2.0 或其他协议。
