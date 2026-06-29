@@ -32,8 +32,8 @@ export function previewPlugin(options = {}) {
     const scrollOffset = axis.getScroll(container.element);
 
     const start =
-      axis.startOf(draggedItem.rect) -
-      axis.startOf(container.rect) +
+      axis.startOf(draggedItem.getCachedRect()) -
+      axis.startOf(container.getCachedRect()) +
       scrollOffset;
 
     // 初始化位置
@@ -41,8 +41,8 @@ export function previewPlugin(options = {}) {
     previewEl.style.pointerEvents = "none";
     previewEl.style.transition = "none";
 
-    previewEl.style.width = `${draggedItem.rect.width}px`;
-    previewEl.style.height = `${draggedItem.rect.height}px`;
+    previewEl.style.width = `${draggedItem.getCachedRect().width}px`;
+    previewEl.style.height = `${draggedItem.getCachedRect().height}px`;
 
     if (ctx.container.isSource(ctx.sourceContainer)) {
       previewEl.style[axis.keys.start] = `${start}px`;
@@ -80,20 +80,20 @@ export function previewPlugin(options = {}) {
       } else if (insertIndex >= items.length) {
         const last = items[items.length - 1];
         distance =
-          axis.endOf(last.rect) -
-          axis.startOf(container.rect) +
+          axis.endOf(last.getCachedRect()) -
+          axis.startOf(container.getCachedRect()) +
           gap +
           scrollOffset;
       } else {
         const related = items[insertIndex];
         distance =
-          axis.startOf(related.rect) -
-          axis.startOf(container.rect) +
+          axis.startOf(related.getCachedRect()) -
+          axis.startOf(container.getCachedRect()) +
           scrollOffset;
       }
     } else {
       // 源容器：items 包含被拖元素（隐藏），需要在两侧分别处理
-      const draggedItemSize = axis.sizeOf(ctx.draggedItem.rect);
+      const draggedItemSize = axis.sizeOf(ctx.draggedItem.getCachedRect());
 
       if (initialIndex <= insertIndex) {
         // 从上往下拖
@@ -101,8 +101,8 @@ export function previewPlugin(options = {}) {
           // 以 insertIndex 之后的一个元素为基准
           const relatedItem = items[insertIndex + 1];
           distance =
-            axis.startOf(relatedItem.rect) -
-            axis.startOf(container.rect) -
+            axis.startOf(relatedItem.getCachedRect()) -
+            axis.startOf(container.getCachedRect()) -
             draggedItemSize -
             gap +
             scrollOffset;
@@ -110,8 +110,8 @@ export function previewPlugin(options = {}) {
           // 拖到末尾：以最后一个元素为基准
           const lastItem = items[items.length - 1];
           distance =
-            axis.endOf(lastItem.rect) -
-            axis.startOf(container.rect) -
+            axis.endOf(lastItem.getCachedRect()) -
+            axis.startOf(container.getCachedRect()) -
             draggedItemSize +
             scrollOffset;
         }
@@ -119,8 +119,8 @@ export function previewPlugin(options = {}) {
         // 从下往上拖：以 insertIndex 元素为基准
         const relatedItem = items[insertIndex];
         distance =
-          axis.startOf(relatedItem.rect) -
-          axis.startOf(container.rect) +
+          axis.startOf(relatedItem.getCachedRect()) -
+          axis.startOf(container.getCachedRect()) +
           scrollOffset;
       }
     }
@@ -162,13 +162,13 @@ export function previewPlugin(options = {}) {
 
       const sourceContainer = ctx.sourceContainer;
       const sourceContainerEl = sourceContainer.containerEl;
-      const sourceRect = sourceContainer.container.rect;
+      const sourceRect = sourceContainer.container.getCachedRect();
       const draggedItem = ctx.draggedItem;
       const axis = ctx.axis;
       const scrollOffset = axis.getScroll(sourceContainer.containerEl);
 
       const homeStart =
-        axis.startOf(draggedItem.rect) -
+        axis.startOf(draggedItem.getCachedRect()) -
         axis.startOf(sourceRect) +
         scrollOffset;
 

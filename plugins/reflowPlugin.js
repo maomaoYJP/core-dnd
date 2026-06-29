@@ -9,10 +9,11 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
   let placeholder = null;
 
   const createPlaceholder = (ctx) => {
+    const draggedItemRect = ctx.draggedItem.getCachedRect();
     placeholder = document.createElement("div");
     placeholder.className = "drag-draggable-wrapper";
-    placeholder.style.width = `${ctx.draggedItem.rect.width}px`;
-    placeholder.style.height = `${ctx.draggedItem.rect.height}px`;
+    placeholder.style.width = `${draggedItemRect.width}px`;
+    placeholder.style.height = `${draggedItemRect.height}px`;
     ctx.activeContainer.container.element.appendChild(placeholder);
   };
 
@@ -36,7 +37,7 @@ export function reflowPlugin({ duration = 200, easing = "ease-in-out" } = {}) {
     const gap = parseFloat(
       getComputedStyle(container.container.element).gap || 0,
     );
-    const step = axis.sizeOf(draggedItem.rect) + gap;
+    const step = axis.sizeOf(draggedItem.getCachedRect()) + gap;
 
     // 如果是在源容器中拖动
     if (sourceContainer === activeContainer) {

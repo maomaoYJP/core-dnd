@@ -52,7 +52,7 @@ export class Axis {
 
   // ============ 算 ============
   // 二分查找：ghost 中心落在 items 哪个插入位之前，还需要考虑translate的影响
-  // items: [{ rect }]
+  // items: [{ getCachedRect() }]
   findInsertIndex(ghostRect, items) {
     const ghostCenter = this.startOf(ghostRect) + this.sizeOf(ghostRect) / 2;
 
@@ -61,9 +61,10 @@ export class Axis {
     while (low < high) {
       const mid = (low + high) >> 1;
       const it = items[mid];
+      const rect = it.getCachedRect();
       const translate = this.correctedTranslate(it.element.style.transform);
-      const start = this.startOf(it.rect) + translate;
-      const midpoint = start + this.sizeOf(it.rect) / 2;
+      const start = this.startOf(rect) + translate;
+      const midpoint = start + this.sizeOf(rect) / 2;
 
       if (ghostCenter < midpoint) high = mid;
       else low = mid + 1;

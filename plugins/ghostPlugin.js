@@ -10,10 +10,10 @@ import { CSS } from "../constant.js";
  *   - onSessionEnd：DOM 已提交，把 ghost 飞向 dragged 的最终槽位（drop 动画）
  *   - onSessionCleanup：卸载 ghost，清理 session.ghost
  *
- * 对外契约：session.ghost = { element, rect }
+ * 对外契约：session.ghost = { element, getCachedRect(), setCachedRect() }
  *   - element：跟随指针的 DOM 节点
- *   - rect：element 当前的 bounding rect（dragContainer 用它做命中检测）
- *   每帧必须同步更新 rect，否则核心算法插入位会错位。
+ *   - getCachedRect()：返回 ghost 当前的 bounding rect
+ *   - setCachedRect()：设置 ghost 的 cached rect
  *
  * 注意：onSessionEnd 的 drop 动画依赖 reflow 在更早注册——reflow 会同步清空
  * items 的 transform，确保 dragged.getBoundingClientRect() 是干净的目标位置。
@@ -125,9 +125,15 @@ export function ghostPlugin(pluginOptions = {}) {
       };
 
       // 约定的 session.ghost 对象，供后续钩子使用
+      let cachedRect = makeRect(rect.left, rect.top, rect.width, rect.height);
       session.ghost = {
         element: wrapper,
-        rect: makeRect(rect.left, rect.top, rect.width, rect.height),
+        getCachedRect() {
+          return cachedRect;
+        },
+        setCachedRect(rect) {
+          cachedRect = rect;
+        },
       };
     },
 
@@ -149,7 +155,8 @@ export function ghostPlugin(pluginOptions = {}) {
       ghost.element.style.top = `${y}px`;
 
       // 更新rect
-      ghost.rect = makeRect(x, y, ghost.rect.width, ghost.rect.height);
+      const rect = ghost.getCachedRect();
+      ghost.setCachedRect(makeRect(x, y, rect.width, rect.height));
     },
 
     onSessionEnd(ctx) {

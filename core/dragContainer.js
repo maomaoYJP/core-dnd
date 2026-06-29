@@ -1,5 +1,6 @@
 import { Axis } from "./axis.js";
 import { CSS } from "../constant.js";
+import { RectCache } from "./rectCache.js";
 
 /**
  * DragContainer：对应容器内部核心操作。
@@ -12,17 +13,30 @@ import { CSS } from "../constant.js";
  *   5. 暴露 triggerEvent 给 session 转发用户回调（onStart / onMove / onEnd / onAdd / onRemove）
  */
 export class DragContainer {
-  constructor(containerElement, options = {}) {
+  constructor(containerElement, options = {}, rectCache = new RectCache()) {
     this.options = options;
     this.containerEl = containerElement;
     this.axis = new Axis(options.axis || "vertical");
+    this.rectCache = rectCache;
 
-    // rect 缓存
-    this.container = { element: containerElement, rect: null };
-    this.items = []; // [{ element, rect }]
+    this.rectCache.registerContainer(this, containerElement);
 
     this._initStructure();
     this.refreshRects();
+  }
+
+  get container() {
+    return this.rectCache.records.get(this).container;
+  }
+
+  get items() {
+    return this.rectCache.records.get(this).items;
+  }
+
+  getItemElements() {
+    return Array.from(
+      this.containerEl.querySelectorAll(`.${CSS.dragDraggableWrapper}`),
+    );
   }
 
   // =================== 读 ====================
@@ -73,40 +87,18 @@ export class DragContainer {
       if (child) this.containerEl.insertBefore(child, wrapper);
       wrapper.remove();
     }
-    this.items = [];
+    this.rectCache.unregisterContainer(this);
   }
 
   // ==================== rect 维护 ====================
   // 原地更新 rect 缓存，避免频繁创建新对象。
   refreshRects() {
-    this.container.rect = this._readRect(
-      this.containerEl.getBoundingClientRect(),
-    );
-
-    const elements = Array.from(
-      this.containerEl.querySelectorAll(`.${CSS.dragDraggableWrapper}`),
-    );
-    const byElement = new Map(this.items.map((it) => [it.element, it]));
-
-    this.items = elements.map((element) => {
-      const rect = this._readRect(element.getBoundingClientRect());
-      const existing = byElement.get(element);
-      if (existing) {
-        existing.rect = rect;
-        return existing;
-      }
-      return { element, rect };
-    });
-  }
-
-  _readRect(r) {
-    const { left, top, right, bottom, width, height } = r;
-    return { left, top, right, bottom, width, height };
+    this.rectCache.refreshContainer(this);
   }
 
   // ==================== 查询（manager 用） ====================
   containsPoint(x, y) {
-    const r = this.container.rect;
+    const r = this.container.getCachedRect();
     return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
   }
 
@@ -127,7 +119,7 @@ export class DragContainer {
   acceptDrag(session) {
     // 进入新容器时，session.insertIndex 在本容器坐标系下应当从"未计算"开始
     session.insertIndex = null;
-    this.refreshRects();
+    this.rectCache.ensureFreshContainer(this);
 
     // 源容器：隐藏被拖元素
     if (this.isSource(session.sourceContainer)) {
@@ -139,7 +131,7 @@ export class DragContainer {
    * 每帧调用：根据 ghost 当前 rect 算落点
    */
   updateDrag(session) {
-    const ghostRect = session.ghost.rect;
+    const ghostRect = session.ghost.getCachedRect();
     const visibleItems = this._visibleItems(session.draggedItem);
     const rawIndex = this.axis.findInsertIndex(ghostRect, visibleItems);
 

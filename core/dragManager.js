@@ -1,6 +1,7 @@
 import { mountStylesToHead } from "../style.js";
 import { DragSession } from "./session.js";
 import { DragContainer } from "./dragContainer.js";
+import { RectCache } from "./rectCache.js";
 import { HookBus, HookNames, fireAndAwait } from "./hooks.js";
 import Plugins from "../plugins/index.js";
 import { userCallbacksPlugin } from "../plugins/userCallbacksPlugin.js";
@@ -17,6 +18,7 @@ export class DragManager {
   constructor() {
     this.containers = [];
     this.session = null;
+    this.rectCache = new RectCache();
     this.hooks = new HookBus();
 
     // 默认注册的插件；用户可调用 use() 追加替换
@@ -35,6 +37,7 @@ export class DragManager {
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
 
+    this.rectCache.attach();
     window.addEventListener("mousedown", this._onMouseDown);
     if (!stylesMounted) {
       mountStylesToHead();
@@ -49,7 +52,7 @@ export class DragManager {
 
   // 挂载一个拖拽容器
   mount(el, options = {}) {
-    const container = new DragContainer(el, options);
+    const container = new DragContainer(el, options, this.rectCache);
     this.containers.push(container);
     return container;
   }
@@ -66,6 +69,7 @@ export class DragManager {
     window.removeEventListener("mousedown", this._onMouseDown);
     window.removeEventListener("mousemove", this._onMouseMove);
     window.removeEventListener("mouseup", this._onMouseUp);
+    this.rectCache.detach();
     for (const c of this.containers) {
       c.destroy?.();
     }
@@ -77,6 +81,7 @@ export class DragManager {
     // 上一次 session 还没收尾完，忽略本次按下
     if (this.session) return;
 
+    this.rectCache.ensureFresh(this.containers);
     const container = this.containers.find((c) =>
       c.containsPoint(event.clientX, event.clientY),
     );

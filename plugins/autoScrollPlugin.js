@@ -40,17 +40,6 @@ export function autoScrollPlugin({
     return el[prop] - before;
   };
 
-  // 容器滚动后，items 在 viewport 中沿主轴反向偏移 `applied`，同步修正缓存
-  const shiftCachedItems = (container, axis, applied) => {
-    if (applied === 0) return;
-    const startKey = axis.keys.start;
-    const endKey = axis.keys.end;
-    for (const item of container.items) {
-      item.rect[startKey] -= applied;
-      item.rect[endKey] -= applied;
-    }
-  };
-
   const scrollWindowBy = (axis, delta) => {
     if (delta === 0) return;
     if (axis.isX) window.scrollBy(delta, 0);
@@ -68,7 +57,7 @@ export function autoScrollPlugin({
       const pos = axis.isX ? pointer.x : pointer.y;
 
       // 1. 先尝试滚动当前容器（按容器自身可视范围判断）
-      const cRect = container.container.rect;
+      const cRect = container.container.getCachedRect();
       const containerDelta = computeDelta(
         pos,
         axis.startOf(cRect),
@@ -77,7 +66,6 @@ export function autoScrollPlugin({
       const applied = scrollContainer(container, axis, containerDelta);
 
       if (applied !== 0) {
-        shiftCachedItems(container, axis, applied);
         return;
       }
 
