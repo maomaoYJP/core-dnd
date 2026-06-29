@@ -81,7 +81,6 @@ export class DragManager {
     // 上一次 session 还没收尾完，忽略本次按下
     if (this.session) return;
 
-    this.rectCache.ensureFresh(this.containers);
     const container = this.containers.find((c) =>
       c.containsPoint(event.clientX, event.clientY),
     );

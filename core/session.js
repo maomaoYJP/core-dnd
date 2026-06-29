@@ -88,7 +88,6 @@ export class DragSession {
   // ==================== 渲染循环 ====================
   _frame = () => {
     this.manager.hooks.fireSync(HookNames.onBeforeSessionFrame, this._ctx());
-    this.manager.rectCache.ensureFresh(this.manager.containers);
 
     const prev = this.activeContainer;
     const next = this._resolveActiveContainer();

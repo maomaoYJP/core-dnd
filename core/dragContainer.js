@@ -119,7 +119,7 @@ export class DragContainer {
   acceptDrag(session) {
     // 进入新容器时，session.insertIndex 在本容器坐标系下应当从"未计算"开始
     session.insertIndex = null;
-    this.rectCache.ensureFreshContainer(this);
+    this.refreshRects();
 
     // 源容器：隐藏被拖元素
     if (this.isSource(session.sourceContainer)) {
