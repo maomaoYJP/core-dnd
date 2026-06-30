@@ -70,12 +70,15 @@ class RectRecord {
   }
 
   measure() {
+    this.element.style.transform = "";
     this.baseRect = readRect(this.element.getBoundingClientRect());
     this.scrollTracker.capture(this.element);
   }
 
   getCachedRect() {
-    return this.scrollTracker.applyTo(this.baseRect);
+    const rect = this.scrollTracker.applyTo(this.baseRect);
+    const { x, y } = readTranslate(this.element.style.transform);
+    return offsetRect(rect, x, y);
   }
 }
 
@@ -123,6 +126,18 @@ function offsetRect(rect, x, y) {
     bottom: rect.bottom + y,
     width: rect.width,
     height: rect.height,
+  };
+}
+
+function readTranslate(transform) {
+  if (!transform) return { x: 0, y: 0 };
+
+  const xMatch = transform.match(/translateX\((-?[\d.]+)px\)/);
+  const yMatch = transform.match(/translateY\((-?[\d.]+)px\)/);
+
+  return {
+    x: xMatch ? parseFloat(xMatch[1]) : 0,
+    y: yMatch ? parseFloat(yMatch[1]) : 0,
   };
 }
 

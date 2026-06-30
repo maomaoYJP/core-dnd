@@ -28,8 +28,8 @@ export class DragManager {
     this.hooks.register(Plugins.userCallbacksPlugin());
     this.hooks.register(Plugins.groupPlugin());
     this.hooks.register(Plugins.handlePlugin());
-    this.hooks.register(Plugins.previewPlugin());
     this.hooks.register(Plugins.reflowPlugin());
+    this.hooks.register(Plugins.previewPlugin());
     this.hooks.register(Plugins.ghostPlugin());
     this.hooks.register(Plugins.autoScrollPlugin());
 
